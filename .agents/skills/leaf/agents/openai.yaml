@@ -1,0 +1,4 @@
+interface:
+  display_name: "LEAF Programming"
+  short_description: "Program and batch LEAF graphs directly"
+  default_prompt: "Use $leaf to author, validate, and persist these LEAF graphs directly."
