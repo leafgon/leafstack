@@ -20,6 +20,9 @@
 - Confirm environment, endpoint, domain, and app ID before any mutation.
 - Use deployed leaf-server GraphQL behavior as authority. The examples below are a working baseline; validate with live acknowledgements and post-mutation re-queries.
 - Treat HTTP success as transport success only. leaf-server can return application errors with HTTP 200.
+- Do not depend on GraphQL schema introspection (`__schema`) for automation.
+  Some deployed `/qmgraphql` parsers accept only approved operation shapes and
+  can reject generic introspection/discovery requests before GraphQL execution.
 
 ## Read graph
 
@@ -46,6 +49,9 @@ query {
 ```
 
 Do not interpolate untrusted text. Current route matching expects simple identifiers; validate the target against the deployed contract before constructing the request.
+
+Prefer explicit known operations (`getGraph` + approved mutations) over dynamic
+schema discovery in production automation.
 
 ## Encode node and edge data
 

@@ -243,6 +243,18 @@ test("layoutLeafGraph rejects negative edge geometry options", () => {
   }
 });
 
+test("layoutLeafGraph rejects unsupported semantic crossing policy", () => {
+  const graph = {
+    domain: "example",
+    appid: "invalid-semantic-crossing-policy",
+    nodes: [makeNode("node-a", { x: 0, y: 0 })],
+  };
+  assert.throws(
+    () => layoutLeafGraph(graph, { semanticCrossingPolicy: "never-cross" }),
+    /semanticCrossingPolicy must be one of allow, auto, forbid-edge-node, forbid-all/,
+  );
+});
+
 test("layoutLeafGraph creates missing canvas metadata", () => {
   const graph = {
     domain: "example",
@@ -263,6 +275,107 @@ test("layoutLeafGraph creates missing canvas metadata", () => {
     x: 361.5,
     y: 261.5,
   });
+});
+
+test("semantic projection preserves data-edge direction with minimum spacing", () => {
+  const graph = makeGraph(
+    {
+      source: { x: 420, y: 260 },
+      target: { x: 200, y: 260 },
+    },
+    [["edge-source-target", "source", "target"]],
+  );
+  const result = layoutLeafGraph(graph, {
+    width: 800,
+    height: 600,
+    padding: 20,
+    iterations: 4,
+    attraction: 0,
+    repulsion: 0,
+    edgeRepulsion: 0,
+    edgeNodeRepulsion: 0,
+    crossingPenalty: 0,
+    sharedSegmentPenalty: 0,
+    gravity: 0,
+    collisionPadding: 0,
+    collisionIterations: 5,
+    failOnOverlap: false,
+    enforceSemanticConstraints: true,
+    semanticDataSpacing: 80,
+    semanticRankGap: 0,
+    semanticProjectionPasses: 5,
+    precision: 3,
+  });
+  const positions = new Map(
+    result.graph.nodes.map((node) => [
+      node.uuid,
+      decode(node.data).leaf.appdata.position,
+    ]),
+  );
+  assert.ok(positions.get("target").x - positions.get("source").x >= 80 - 1e-6);
+  assert.equal(result.semanticViolationCount, 0);
+});
+
+test("semantic violation can fail fast when constraints are impossible", () => {
+  const graph = makeGraph(
+    {
+      source: { x: 40, y: 200 },
+      target: { x: 60, y: 200 },
+    },
+    [["edge-source-target", "source", "target"]],
+  );
+  assert.throws(
+    () =>
+      layoutLeafGraph(graph, {
+        width: 220,
+        height: 300,
+        padding: 40,
+        iterations: 3,
+        attraction: 0,
+        repulsion: 0,
+        edgeRepulsion: 0,
+        edgeNodeRepulsion: 0,
+        crossingPenalty: 0,
+        sharedSegmentPenalty: 0,
+        gravity: 0,
+        collisionPadding: 0,
+        collisionIterations: 5,
+        failOnOverlap: false,
+        enforceSemanticConstraints: true,
+        failOnSemanticViolation: true,
+        semanticDataSpacing: 200,
+        semanticRankGap: 0,
+      }),
+    /semantic constraint violation/,
+  );
+});
+
+test("adaptive canvas can shrink runtime footprint and expose metrics", () => {
+  const graph = makeGraph(
+    {
+      nodeA: { x: 80, y: 80 },
+      nodeB: { x: 360, y: 90 },
+      nodeC: { x: 90, y: 420 },
+      nodeD: { x: 370, y: 430 },
+    },
+    [
+      ["edge-a-b", "nodeA", "nodeB"],
+      ["edge-c-d", "nodeC", "nodeD"],
+    ],
+  );
+  const result = layoutLeafGraph(graph, {
+    width: 4000,
+    height: 3000,
+    padding: 40,
+    iterations: 6,
+    maxRuntimeMs: 500,
+    adaptiveCanvasByNodeCount: true,
+  });
+
+  assert.ok(result.effectiveCanvas.width < 4000);
+  assert.ok(result.effectiveCanvas.height < 3000);
+  assert.ok(result.effectiveCanvas.adaptive);
+  assert.ok(result.elapsedMs >= 0);
 });
 
 test("layoutLeafGraph separates coincident mixed-size Piper node boxes", () => {
@@ -410,6 +523,76 @@ test("shared-segment penalty separates collinear edge paths", () => {
   assert.equal(separated.sharedSegmentCount, 0);
 });
 
+test("semantic crossing policy allow can rule-in edge crossings", () => {
+  const graph = makeGraph(
+    {
+      northwest: { x: 100, y: 100 },
+      southeast: { x: 700, y: 500 },
+      southwest: { x: 100, y: 500 },
+      northeast: { x: 700, y: 100 },
+    },
+    [
+      ["edge-down", "northwest", "southeast"],
+      ["edge-up", "southwest", "northeast"],
+    ],
+  );
+
+  const result = layoutLeafGraph(graph, {
+    ...edgeFixtureOptions,
+    edgeRepulsion: 1,
+    crossingPenalty: 3,
+    semanticCrossingPolicy: "allow",
+  });
+
+  assert.equal(result.edgeCrossingCount, 1);
+  assert.equal(result.options.edgeRepulsion, 0);
+  assert.equal(result.options.crossingPenalty, 0);
+});
+
+test("semantic crossing policy forbid-edge-node fails when intersections remain", () => {
+  const graph = makeGraph(
+    {
+      source: { x: 100, y: 300 },
+      target: { x: 700, y: 300 },
+      obstructing: { x: 400, y: 300 },
+    },
+    [["edge", "source", "target"]],
+  );
+
+  assert.throws(
+    () =>
+      layoutLeafGraph(graph, {
+        ...edgeFixtureOptions,
+        semanticCrossingPolicy: "forbid-edge-node",
+      }),
+    /semantic crossing policy forbids edge-node intersections/,
+  );
+});
+
+test("semantic crossing policy forbid-all fails when crossings remain", () => {
+  const graph = makeGraph(
+    {
+      northwest: { x: 100, y: 100 },
+      southeast: { x: 700, y: 500 },
+      southwest: { x: 100, y: 500 },
+      northeast: { x: 700, y: 100 },
+    },
+    [
+      ["edge-down", "northwest", "southeast"],
+      ["edge-up", "southwest", "northeast"],
+    ],
+  );
+
+  assert.throws(
+    () =>
+      layoutLeafGraph(graph, {
+        ...edgeFixtureOptions,
+        semanticCrossingPolicy: "forbid-all",
+      }),
+    /semantic crossing policy forbids edge crossings\/intersections/,
+  );
+});
+
 test("disabling edge geometry forces preserves legacy force-layout output", () => {
   const graph = makeGraph(
     {
@@ -535,7 +718,7 @@ test("local batch layout runs after a topology operation", async () => {
       },
     );
     assert.notEqual(remote.status, 0);
-    assert.match(remote.stderr, /force-directed layout is local-only/);
+    assert.match(remote.stderr, /local layout simulation is local-only/);
 
     const write = spawnSync(
       process.execPath,

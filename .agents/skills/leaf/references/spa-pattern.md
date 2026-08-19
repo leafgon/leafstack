@@ -218,6 +218,50 @@ Register the listener once. Prefer scrolling without rewriting history unless
 the application explicitly requires hash state. Account for a fixed header
 with `scroll-margin-top` on targets or a measured scroll offset.
 
+### Sandboxed inter-page navigation
+
+In the current hosted iframe model, ordinary document link clicks may not
+navigate the outer application URL directly. For inter-page navigation, emit
+an explicit LEAF event from the document and let graph flow perform navigation.
+
+Typical shape:
+
+```text
+html document click -> doelementio and/or doscreenio
+-> html element output (elementio bottle)
+-> gate(elementio) -> transform -> gate(href-request) -> leafelement(href)
+```
+
+Inside HTML, intercept click and emit a bottled intent:
+
+```js
+document.addEventListener('click', function (event) {
+  const target = event.target.closest('[data-guide-topic]');
+  if (!target) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+
+  const topic = target.getAttribute('data-guide-topic') || 'intro';
+  const navBottle = {
+    _bname: 'guide-nav',
+    _content: {
+      topic,
+      url: '/editor/breezyforest/guides?topic=' + encodeURIComponent(topic)
+    },
+    _label: {source: 'breezyforest/guides'}
+  };
+
+  if (typeof doelementio === 'function') doelementio(navBottle);
+  if (typeof doscreenio === 'function') doscreenio(navBottle);
+}, true);
+```
+
+Treat this as host-integration behavior, not browser default navigation. Keep
+event bottle names stable and gate by name before any side-effecting
+navigation element.
+
 ## Assets and hosted application shells
 
 Small immutable images can be data URIs. They remove a network dependency but

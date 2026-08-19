@@ -147,6 +147,15 @@ Treat a normal LEAFlisp node as a pure data transform. If host globals introduce
   `do` or a selected `if` branch is likewise returned. Use `return` only when
   its explicit early-exit behavior is needed, and re-qualify this shorthand
   on a later selected runtime.
+- Keep `if` conditions strictly boolean. Under `ghostos@0.2.16`, non-boolean
+  conditions such as strings raise a runtime error instead of using JS-like
+  truthiness.
+- Re-qualify equality/operator names on the selected runtime before relying on
+  them. Under `ghostos@0.2.16`, `=` is undefined in `executeLEAFlisp` unless
+  your environment provides an explicit equality binding.
+- For standalone/runtime-portable equality checks on `ghostos@0.2.16`, use
+  `==` (for example `(== (get inport :topic) "intro")`) and re-verify when
+  upgrading GhostOS.
 - Read object fields with `get` and keyword keys after confirming the object shape.
 - Define small helpers locally unless the runtime demonstrably injects them.
 - Preserve `false`, `0`, `""`, empty vectors, and missing values through conversion tests.
