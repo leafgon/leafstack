@@ -2,6 +2,7 @@ import {
   normalizeNodeDimensionOverrides,
   resolvePiperLeafNodeDimensions,
 } from "./piper-node-dimensions.mjs";
+import { performance } from "node:perf_hooks";
 
 /**
  * Deterministic, synchronous 2D Fruchterman-Reingold layout for a LEAF
@@ -16,6 +17,23 @@ const DEFAULT_OPTIONS = Object.freeze({
   iterations: 300,
   attraction: 1,
   repulsion: 1,
+  proximityRepulsionExponent: 0,
+  enforceSemanticConstraints: false,
+  semanticDataSpacing: 40,
+  semanticLambdaSpacing: 40,
+  semanticAnchorSpacing: 40,
+  semanticRankGap: 8,
+  semanticProjectionPasses: 2,
+  semanticEarlyStopPatience: 12,
+  semanticCrossingPolicy: "auto",
+  maxSemanticDrift: 0,
+  failOnSemanticViolation: false,
+  adaptiveCanvasByNodeCount: false,
+  adaptiveCompressionMin: 0.68,
+  adaptiveCompressionMax: 0.92,
+  adaptiveAspectMin: 0.6,
+  adaptiveAspectMax: 1.6,
+  maxRuntimeMs: 0,
   edgeRepulsion: 0.5,
   edgeNodeRepulsion: 1,
   crossingPenalty: 2,
@@ -40,6 +58,15 @@ const TOPOLOGY_OPERATIONS = new Set([
   "deleteNode",
   "addEdge",
   "deleteEdge",
+]);
+const DATA_EDGE_TYPE = "leafdataedge";
+const LAMBDA_EDGE_TYPE = "leaflambdaedge";
+const ANCHOR_EDGE_TYPE = "leafanchoredge";
+const SEMANTIC_CROSSING_POLICIES = new Set([
+  "allow",
+  "auto",
+  "forbid-edge-node",
+  "forbid-all",
 ]);
 
 const requireFiniteNumber = (
@@ -102,6 +129,66 @@ export const normalizeLeafForceLayoutOptions = (
     minimum: 0,
   });
   requireFiniteNumber(options.repulsion, `${label}.repulsion`, { minimum: 0 });
+  requireFiniteNumber(
+    options.proximityRepulsionExponent,
+    `${label}.proximityRepulsionExponent`,
+    {
+      minimum: 0,
+    },
+  );
+  if (typeof options.enforceSemanticConstraints !== "boolean") {
+    throw new Error(`${label}.enforceSemanticConstraints must be a boolean`);
+  }
+  for (const [name, minimum] of [
+    ["semanticDataSpacing", 0],
+    ["semanticLambdaSpacing", 0],
+    ["semanticAnchorSpacing", 0],
+    ["semanticRankGap", 0],
+    ["maxSemanticDrift", 0],
+    ["maxRuntimeMs", 0],
+    ["adaptiveCompressionMin", 0],
+    ["adaptiveCompressionMax", 0],
+    ["adaptiveAspectMin", 0],
+    ["adaptiveAspectMax", 0],
+  ]) {
+    requireFiniteNumber(options[name], `${label}.${name}`, { minimum });
+  }
+  for (const name of [
+    "semanticProjectionPasses",
+    "semanticEarlyStopPatience",
+  ]) {
+    if (
+      !Number.isInteger(options[name]) ||
+      options[name] < 1 ||
+      options[name] > 10_000
+    ) {
+      throw new Error(`${label}.${name} must be an integer between 1 and 10000`);
+    }
+  }
+  if (
+    typeof options.semanticCrossingPolicy !== "string" ||
+    !SEMANTIC_CROSSING_POLICIES.has(options.semanticCrossingPolicy)
+  ) {
+    throw new Error(
+      `${label}.semanticCrossingPolicy must be one of allow, auto, forbid-edge-node, forbid-all`,
+    );
+  }
+  if (typeof options.failOnSemanticViolation !== "boolean") {
+    throw new Error(`${label}.failOnSemanticViolation must be a boolean`);
+  }
+  if (typeof options.adaptiveCanvasByNodeCount !== "boolean") {
+    throw new Error(`${label}.adaptiveCanvasByNodeCount must be a boolean`);
+  }
+  if (options.adaptiveCompressionMin > options.adaptiveCompressionMax) {
+    throw new Error(
+      `${label}.adaptiveCompressionMin must be at most adaptiveCompressionMax`,
+    );
+  }
+  if (options.adaptiveAspectMin > options.adaptiveAspectMax) {
+    throw new Error(
+      `${label}.adaptiveAspectMin must be at most adaptiveAspectMax`,
+    );
+  }
   requireFiniteNumber(options.edgeRepulsion, `${label}.edgeRepulsion`, {
     minimum: 0,
   });
@@ -187,6 +274,19 @@ const decodeNodeData = (node, label) => {
     throw new Error(`${label}.data must contain a leaf object`);
   }
   return decoded;
+};
+
+const decodeEdgeType = (edge) => {
+  if (typeof edge?.data !== "string" || !BASE64_PATTERN.test(edge.data)) {
+    return undefined;
+  }
+  try {
+    const decoded = JSON.parse(Buffer.from(edge.data, "base64").toString("utf8"));
+    const edgeType = decoded?.leaf?.logic?.type;
+    return typeof edgeType === "string" ? edgeType : undefined;
+  } catch {
+    return undefined;
+  }
 };
 
 const encodeNodeData = (decoded) =>
@@ -806,10 +906,376 @@ const flattenEdges = (graph, nodeIds) => {
         throw new Error(`${label} must be nested under its source node`);
       if (!nodeIds.has(target))
         throw new Error(`${label} targets missing node ${target}`);
-      edges.push({ uuid: edge.uuid, source, target });
+      edges.push({
+        uuid: edge.uuid,
+        source,
+        target,
+        type: decodeEdgeType(edge),
+      });
     }
   }
   return edges.sort((left, right) => left.uuid.localeCompare(right.uuid));
+};
+
+const decodedNodeEnvelope = (records) => {
+  let minimumX = Infinity;
+  let minimumY = Infinity;
+  let maximumX = -Infinity;
+  let maximumY = -Infinity;
+  let totalNodeArea = 0;
+  for (const record of records) {
+    const position = record.decoded?.leaf?.appdata?.position;
+    const topLeftX = Number.isFinite(position?.x) ? position.x : 0;
+    const topLeftY = Number.isFinite(position?.y) ? position.y : 0;
+    minimumX = Math.min(minimumX, topLeftX);
+    minimumY = Math.min(minimumY, topLeftY);
+    maximumX = Math.max(maximumX, topLeftX + record.dimensions.width);
+    maximumY = Math.max(maximumY, topLeftY + record.dimensions.height);
+    totalNodeArea += record.dimensions.width * record.dimensions.height;
+  }
+  return {
+    width: Math.max(1, maximumX - minimumX),
+    height: Math.max(1, maximumY - minimumY),
+    area: Math.max(1, (maximumX - minimumX) * (maximumY - minimumY)),
+    totalNodeArea,
+  };
+};
+
+const resolveAdaptiveCanvas = (records, options) => {
+  const defaults = {
+    width: options.width,
+    height: options.height,
+    meta: null,
+  };
+  if (!options.adaptiveCanvasByNodeCount || records.length === 0) return defaults;
+
+  const envelope = decodedNodeEnvelope(records);
+  const nodeCount = records.length;
+  const compression = clamp(
+    0.95 - 10 / (nodeCount + 12),
+    options.adaptiveCompressionMin,
+    options.adaptiveCompressionMax,
+  );
+  const targetArea = Math.max(
+    envelope.totalNodeArea * 1.8,
+    envelope.area * compression,
+  );
+  const ratio = clamp(
+    envelope.width / Math.max(1, envelope.height),
+    options.adaptiveAspectMin,
+    options.adaptiveAspectMax,
+  );
+  const maxNodeWidth = records.reduce(
+    (maximum, record) => Math.max(maximum, record.dimensions.width),
+    1,
+  );
+  const maxNodeHeight = records.reduce(
+    (maximum, record) => Math.max(maximum, record.dimensions.height),
+    1,
+  );
+  const desiredInnerWidth = Math.max(
+    maxNodeWidth + options.collisionPadding * 2 + 1,
+    Math.round(Math.sqrt(targetArea * ratio)),
+  );
+  const desiredInnerHeight = Math.max(
+    maxNodeHeight + options.collisionPadding * 2 + 1,
+    Math.round(targetArea / Math.max(1, desiredInnerWidth)),
+  );
+  const width = Math.max(
+    maxNodeWidth + options.padding * 2 + 1,
+    desiredInnerWidth + options.padding * 2,
+  );
+  const height = Math.max(
+    maxNodeHeight + options.padding * 2 + 1,
+    desiredInnerHeight + options.padding * 2,
+  );
+  return {
+    width,
+    height,
+    meta: {
+      nodeCount,
+      compression: round(compression, 4),
+      targetArea: round(targetArea, options.precision),
+      ratio: round(ratio, 4),
+      sourceArea: round(envelope.area, options.precision),
+      sourceWidth: round(envelope.width, options.precision),
+      sourceHeight: round(envelope.height, options.precision),
+    },
+  };
+};
+
+const buildRankLocks = (nodeIds, axis, minDistance, seedPositions) => {
+  if (minDistance <= 0) return [];
+  const sorted = [...nodeIds].sort((left, right) => {
+    const leftPosition = seedPositions.get(left);
+    const rightPosition = seedPositions.get(right);
+    return leftPosition[axis] - rightPosition[axis] || left.localeCompare(right);
+  });
+  const locks = [];
+  for (let index = 0; index < sorted.length - 1; index += 1) {
+    const source = sorted[index];
+    const target = sorted[index + 1];
+    if (source === target) continue;
+    locks.push({ source, target, axis, minDistance });
+  }
+  return locks;
+};
+
+const cyclicEdgeIds = (nodeIds, edges) => {
+  const adjacency = new Map([...nodeIds].map((uuid) => [uuid, []]));
+  for (const edge of edges) {
+    if (!adjacency.has(edge.source) || !adjacency.has(edge.target)) continue;
+    adjacency.get(edge.source).push(edge.target);
+  }
+
+  const indexByNode = new Map();
+  const lowLinkByNode = new Map();
+  const onStack = new Set();
+  const stack = [];
+  const componentByNode = new Map();
+  const componentSizes = new Map();
+  let index = 0;
+  let component = 0;
+
+  const visit = (uuid) => {
+    indexByNode.set(uuid, index);
+    lowLinkByNode.set(uuid, index);
+    index += 1;
+    stack.push(uuid);
+    onStack.add(uuid);
+
+    for (const target of adjacency.get(uuid)) {
+      if (!indexByNode.has(target)) {
+        visit(target);
+        lowLinkByNode.set(
+          uuid,
+          Math.min(lowLinkByNode.get(uuid), lowLinkByNode.get(target)),
+        );
+      } else if (onStack.has(target)) {
+        lowLinkByNode.set(
+          uuid,
+          Math.min(lowLinkByNode.get(uuid), indexByNode.get(target)),
+        );
+      }
+    }
+
+    if (lowLinkByNode.get(uuid) === indexByNode.get(uuid)) {
+      let size = 0;
+      while (stack.length > 0) {
+        const member = stack.pop();
+        onStack.delete(member);
+        componentByNode.set(member, component);
+        size += 1;
+        if (member === uuid) break;
+      }
+      componentSizes.set(component, size);
+      component += 1;
+    }
+  };
+
+  for (const uuid of nodeIds) {
+    if (!indexByNode.has(uuid)) visit(uuid);
+  }
+
+  return new Set(
+    edges
+      .filter((edge) => {
+        const edgeComponent = componentByNode.get(edge.source);
+        return (
+          edgeComponent === componentByNode.get(edge.target) &&
+          (componentSizes.get(edgeComponent) > 1 || edge.source === edge.target)
+        );
+      })
+      .map((edge) => edge.uuid),
+  );
+};
+
+const buildSemanticConstraints = (records, edges, positions, options) => {
+  if (!options.enforceSemanticConstraints) return null;
+  const seedPositions = new Map(
+    records.map((record) => {
+      const position = positions.get(record.node.uuid);
+      return [record.node.uuid, { x: position.x, y: position.y }];
+    }),
+  );
+  const dataNodes = new Set();
+  const verticalNodes = new Set();
+  const nodeIds = new Set(records.map((record) => record.node.uuid));
+  const dataEdges = edges.filter((edge) => edge.type === DATA_EDGE_TYPE);
+  const lambdaEdges = edges.filter((edge) => edge.type === LAMBDA_EDGE_TYPE);
+  const anchorEdges = edges.filter((edge) => edge.type === ANCHOR_EDGE_TYPE);
+  const skippedCycleEdgeIds = new Set([
+    ...cyclicEdgeIds(nodeIds, dataEdges),
+    ...cyclicEdgeIds(nodeIds, lambdaEdges),
+    ...cyclicEdgeIds(nodeIds, anchorEdges),
+  ]);
+
+  const edgeConstraints = [];
+  for (const edge of edges) {
+    if (edge.source === edge.target || skippedCycleEdgeIds.has(edge.uuid)) continue;
+    if (edge.type === DATA_EDGE_TYPE) {
+      edgeConstraints.push({
+        source: edge.source,
+        target: edge.target,
+        axis: "x",
+        minDistance: options.semanticDataSpacing,
+      });
+      dataNodes.add(edge.source);
+      dataNodes.add(edge.target);
+    } else if (edge.type === LAMBDA_EDGE_TYPE) {
+      edgeConstraints.push({
+        source: edge.source,
+        target: edge.target,
+        axis: "y",
+        minDistance: options.semanticLambdaSpacing,
+      });
+      verticalNodes.add(edge.source);
+      verticalNodes.add(edge.target);
+    } else if (edge.type === ANCHOR_EDGE_TYPE) {
+      edgeConstraints.push({
+        source: edge.source,
+        target: edge.target,
+        axis: "y",
+        minDistance: options.semanticAnchorSpacing,
+      });
+      verticalNodes.add(edge.source);
+      verticalNodes.add(edge.target);
+    }
+  }
+
+  const rankLocks = [
+    ...buildRankLocks(dataNodes, "x", options.semanticRankGap, seedPositions),
+    ...buildRankLocks(verticalNodes, "y", options.semanticRankGap, seedPositions),
+  ];
+
+  return {
+    edgeConstraints,
+    rankLocks,
+    seedPositions,
+    skippedCycleEdgeCount: skippedCycleEdgeIds.size,
+  };
+};
+
+const enforceAxisGapBetween = (
+  constraint,
+  positions,
+  recordsByUuid,
+  bounds,
+) => {
+  const leftRecord = recordsByUuid.get(constraint.source);
+  const rightRecord = recordsByUuid.get(constraint.target);
+  if (!leftRecord || !rightRecord) return false;
+  const left = positions.get(constraint.source);
+  const right = positions.get(constraint.target);
+  const delta = right[constraint.axis] - left[constraint.axis];
+  if (delta + 1e-9 >= constraint.minDistance) return false;
+
+  const deficit = constraint.minDistance - delta;
+  const leftCapacity = movementCapacity(
+    leftRecord,
+    left,
+    bounds,
+    constraint.axis,
+    -1,
+  );
+  const rightCapacity = movementCapacity(
+    rightRecord,
+    right,
+    bounds,
+    constraint.axis,
+    1,
+  );
+
+  let leftMove = Math.min(deficit / 2, leftCapacity);
+  let rightMove = Math.min(deficit - leftMove, rightCapacity);
+  leftMove += Math.min(
+    deficit - leftMove - rightMove,
+    leftCapacity - leftMove,
+  );
+  rightMove += Math.min(
+    deficit - leftMove - rightMove,
+    rightCapacity - rightMove,
+  );
+  if (leftMove <= 1e-9 && rightMove <= 1e-9) return false;
+
+  left[constraint.axis] -= leftMove;
+  right[constraint.axis] += rightMove;
+  clampCenter(leftRecord, left, bounds);
+  clampCenter(rightRecord, right, bounds);
+  return true;
+};
+
+const applySemanticDriftCap = (
+  constraints,
+  records,
+  positions,
+  bounds,
+  options,
+) => {
+  if (!constraints || options.maxSemanticDrift <= 0) return false;
+  let changed = false;
+  for (const record of records) {
+    const seed = constraints.seedPositions.get(record.node.uuid);
+    const position = positions.get(record.node.uuid);
+    const deltaX = position.x - seed.x;
+    const deltaY = position.y - seed.y;
+    const distance = Math.hypot(deltaX, deltaY);
+    if (distance <= options.maxSemanticDrift + 1e-9) continue;
+    const ratio = options.maxSemanticDrift / Math.max(1e-9, distance);
+    position.x = seed.x + deltaX * ratio;
+    position.y = seed.y + deltaY * ratio;
+    clampCenter(record, position, bounds);
+    changed = true;
+  }
+  return changed;
+};
+
+const countSemanticViolations = (constraints, positions) => {
+  if (!constraints) return 0;
+  let count = 0;
+  for (const constraint of [...constraints.edgeConstraints, ...constraints.rankLocks]) {
+    const source = positions.get(constraint.source);
+    const target = positions.get(constraint.target);
+    if (!source || !target) continue;
+    if (target[constraint.axis] - source[constraint.axis] < constraint.minDistance - 1e-6) {
+      count += 1;
+    }
+  }
+  return count;
+};
+
+const projectSemanticConstraints = (
+  constraints,
+  records,
+  recordsByUuid,
+  positions,
+  bounds,
+  options,
+) => {
+  if (!constraints) return { changed: false, violationCount: 0 };
+  let changed = false;
+  for (let pass = 0; pass < options.semanticProjectionPasses; pass += 1) {
+    let passChanged = false;
+    for (const constraint of constraints.edgeConstraints) {
+      passChanged =
+        enforceAxisGapBetween(constraint, positions, recordsByUuid, bounds) ||
+        passChanged;
+    }
+    for (const lock of constraints.rankLocks) {
+      passChanged =
+        enforceAxisGapBetween(lock, positions, recordsByUuid, bounds) ||
+        passChanged;
+    }
+    passChanged =
+      applySemanticDriftCap(constraints, records, positions, bounds, options) ||
+      passChanged;
+    changed = changed || passChanged;
+    if (!passChanged) break;
+  }
+  return {
+    changed,
+    violationCount: countSemanticViolations(constraints, positions),
+  };
 };
 
 const edgesShareEndpoint = (left, right) =>
@@ -1088,7 +1554,14 @@ export const layoutLeafGraph = (sourceGraph, layoutOptions = {}) => {
   }
   if (!Array.isArray(sourceGraph.nodes))
     throw new Error("graph.nodes must be an array");
+  const layoutStart = performance.now();
   const options = normalizeLeafForceLayoutOptions(layoutOptions);
+  if (options.semanticCrossingPolicy === "allow") {
+    options.edgeRepulsion = 0;
+    options.edgeNodeRepulsion = 0;
+    options.crossingPenalty = 0;
+    options.sharedSegmentPenalty = 0;
+  }
   const graph = structuredClone(sourceGraph);
   const records = graph.nodes.map((node, index) => {
     if (typeof node?.uuid !== "string" || node.uuid.length === 0) {
@@ -1113,16 +1586,20 @@ export const layoutLeafGraph = (sourceGraph, layoutOptions = {}) => {
   );
   const edges = flattenEdges(graph, nodeIds);
 
+  const adaptiveCanvas = resolveAdaptiveCanvas(records, options);
+  const effectiveCanvasWidth = adaptiveCanvas.width;
+  const effectiveCanvasHeight = adaptiveCanvas.height;
+
   const bounds = {
     minimumX: options.padding,
-    maximumX: options.width - options.padding,
+    maximumX: effectiveCanvasWidth - options.padding,
     minimumY: options.padding,
-    maximumY: options.height - options.padding,
+    maximumY: effectiveCanvasHeight - options.padding,
   };
   bounds.width = bounds.maximumX - bounds.minimumX;
   bounds.height = bounds.maximumY - bounds.minimumY;
-  bounds.centerX = options.width / 2;
-  bounds.centerY = options.height / 2;
+  bounds.centerX = effectiveCanvasWidth / 2;
+  bounds.centerY = effectiveCanvasHeight / 2;
 
   const positions = new Map(
     records.map((record, index) => [
@@ -1130,6 +1607,18 @@ export const layoutLeafGraph = (sourceGraph, layoutOptions = {}) => {
       initialPosition(record, index, records.length, bounds),
     ]),
   );
+  const semanticConstraints = buildSemanticConstraints(
+    records,
+    edges,
+    positions,
+    options,
+  );
+  let semanticViolationCount = countSemanticViolations(
+    semanticConstraints,
+    positions,
+  );
+  let iterationsExecuted = 0;
+  let semanticSatisfiedStreak = semanticViolationCount === 0 ? 1 : 0;
   if (records.length === 1) {
     positions.set(records[0].node.uuid, {
       x: bounds.centerX,
@@ -1142,6 +1631,13 @@ export const layoutLeafGraph = (sourceGraph, layoutOptions = {}) => {
       options.initialTemperature ?? Math.min(bounds.width, bounds.height) / 10;
 
     for (let iteration = 0; iteration < options.iterations; iteration += 1) {
+      if (
+        options.maxRuntimeMs > 0 &&
+        performance.now() - layoutStart >= options.maxRuntimeMs
+      ) {
+        break;
+      }
+      iterationsExecuted = iteration + 1;
       const displacement = new Map(
         records.map((record) => [record.node.uuid, { x: 0, y: 0 }]),
       );
@@ -1177,9 +1673,21 @@ export const layoutLeafGraph = (sourceGraph, layoutOptions = {}) => {
             options.collisionPadding,
           );
           const surfaceDistance = Math.max(1, distance - clearance);
+          const proximity =
+            1 - Math.min(1, surfaceDistance / Math.max(1, forceConstant));
+          const proximityMultiplier =
+            options.proximityRepulsionExponent > 0
+              ? Math.exp(
+                  Math.min(
+                    6,
+                    options.proximityRepulsionExponent * Math.max(0, proximity),
+                  ),
+                )
+              : 1;
           const force =
-            (options.repulsion * forceConstant * forceConstant) /
-            surfaceDistance;
+            ((options.repulsion * forceConstant * forceConstant) /
+              surfaceDistance) *
+            proximityMultiplier;
           const changeX = unitX * force;
           const changeY = unitY * force;
           displacement.get(leftUuid).x += changeX;
@@ -1256,8 +1764,37 @@ export const layoutLeafGraph = (sourceGraph, layoutOptions = {}) => {
         bounds,
         options.collisionPadding,
       );
+
+      const projection = projectSemanticConstraints(
+        semanticConstraints,
+        records,
+        recordsByUuid,
+        positions,
+        bounds,
+        options,
+      );
+      semanticViolationCount = projection.violationCount;
+      if (semanticViolationCount === 0) {
+        semanticSatisfiedStreak += 1;
+      } else {
+        semanticSatisfiedStreak = 0;
+      }
+      if (
+        semanticConstraints &&
+        semanticSatisfiedStreak >= options.semanticEarlyStopPatience
+      ) {
+        break;
+      }
     }
     recenterPositions(records, positions, bounds);
+    semanticViolationCount = projectSemanticConstraints(
+      semanticConstraints,
+      records,
+      recordsByUuid,
+      positions,
+      bounds,
+      options,
+    ).violationCount;
   }
 
   const roundingSafety = 10 ** -options.precision;
@@ -1311,6 +1848,30 @@ export const layoutLeafGraph = (sourceGraph, layoutOptions = {}) => {
       `force-directed layout left ${overlapCount} overlapping node pair(s); enlarge the canvas, reduce collisionPadding, or set failOnOverlap to false`,
     );
   }
+  if (
+    options.semanticCrossingPolicy === "forbid-edge-node" &&
+    edgeGeometry.edgeNodeIntersectionCount > 0
+  ) {
+    throw new Error(
+      `semantic crossing policy forbids edge-node intersections; ${edgeGeometry.edgeNodeIntersectionCount} remain`,
+    );
+  }
+  if (options.semanticCrossingPolicy === "forbid-all") {
+    const forbiddenCount =
+      edgeGeometry.edgeCrossingCount +
+      edgeGeometry.edgeNodeIntersectionCount +
+      edgeGeometry.sharedSegmentCount;
+    if (forbiddenCount > 0) {
+      throw new Error(
+        `semantic crossing policy forbids edge crossings/intersections; ${forbiddenCount} remain`,
+      );
+    }
+  }
+  if (semanticViolationCount > 0 && options.failOnSemanticViolation) {
+    throw new Error(
+      `force-directed layout left ${semanticViolationCount} semantic constraint violation(s); increase semantic spacing, projection passes, or canvas size`,
+    );
+  }
 
   const changedNodeUuids = [];
   for (const record of records) {
@@ -1353,6 +1914,15 @@ export const layoutLeafGraph = (sourceGraph, layoutOptions = {}) => {
     nodeCount: records.length,
     edgeCount: edges.length,
     overlapCount,
+    semanticViolationCount,
+    semanticSkippedCycleEdgeCount: semanticConstraints?.skippedCycleEdgeCount ?? 0,
+    iterationsExecuted,
+    elapsedMs: round(performance.now() - layoutStart, options.precision),
+    effectiveCanvas: {
+      width: round(effectiveCanvasWidth, options.precision),
+      height: round(effectiveCanvasHeight, options.precision),
+      adaptive: adaptiveCanvas.meta,
+    },
     ...edgeGeometry,
     options,
   };

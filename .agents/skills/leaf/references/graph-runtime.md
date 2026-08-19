@@ -156,6 +156,10 @@ calling ELK. Set `failOnDirectionViolation: false` only for an explicitly
 reviewed best effort; cyclic edges are then excluded from hard directional
 constraints and reported in the result.
 
+By default, mixed-plane crossings are reported as metrics only. Set
+`failOnMixedEdgeCrossing: true` when a reviewed workflow must reject any final
+layout that still contains data↔lambda crossings (`dataLambdaCrossingCount`).
+
 Persist only the reviewed node coordinates through the current leaf-server
 API. Routed sections are local visualization data until Piper and leaf-server
 define a compatible bend-point metadata contract.

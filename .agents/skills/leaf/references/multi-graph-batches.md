@@ -6,7 +6,7 @@
 - Local graph files
 - Batch manifest
 - Local planning and writes
-- Force-directed local layout
+- Local layout
 - Remote apply and synchronization
 - Ordering and failure semantics
 - Security rules
@@ -40,6 +40,12 @@ in operation payloads and encodes them before writing or submission.
 
 Use files as working snapshots, not as persistence authority. Re-query
 leaf-server after remote changes.
+
+When a graph declaration uses `graphs[].layout`, the local file must represent
+the full current graph state for that address before simulation (all existing
+nodes/edges, not only newly authored additions). Otherwise layout can position
+new nodes without accounting for pre-existing boxes and produce avoidable
+overlap on persistence.
 
 ## Batch manifest
 
@@ -98,7 +104,7 @@ empty graph. It does not provision or authorize a server namespace. Remote
 adds succeed only when leaf-server recognizes the target domain/app pair and
 grants the caller write access.
 
-## Force-directed local layout
+## Local layout
 
 Add an optional `layout` object to a graph declaration:
 
@@ -108,25 +114,37 @@ Add an optional `layout` object to a graph declaration:
   "appid": "app-one",
   "file": "graphs/domain-a/app-one.json",
   "layout": {
-    "algorithm": "force-directed",
-    "width": 1600,
-    "height": 900,
-    "padding": 80,
-    "iterations": 300,
-    "attraction": 1,
-    "repulsion": 1,
-    "edgeRepulsion": 0.5,
-    "edgeNodeRepulsion": 1,
-    "crossingPenalty": 2,
-    "sharedSegmentPenalty": 1,
-    "edgeClearance": 24,
-    "sharedSegmentTolerance": 8,
-    "gravity": 0.05,
-    "collisionPadding": 16,
+    "algorithm": "semantic",
+    "dataSpacing": 40,
+    "lambdaSpacing": 40,
+    "anchorSpacing": 40,
+    "nodeSpacing": 24,
+    "collisionPadding": 10,
+    "crossingPenalty": 0.5,
+    "sharedSegmentPenalty": 0.5,
+    "edgeClearance": 12,
     "collisionIterations": 100,
-    "failOnOverlap": true,
-    "precision": 2
+    "constraintIterations": 200
   }
+}
+```
+
+If `layout.algorithm` is omitted, the batch tool defaults to `semantic` and
+applies a soft crossing penalty (`crossingPenalty: 0.5`) unless overridden.
+Set `layout.algorithm: "force-directed"` to use the deterministic canvas-based
+force layout profile.
+
+For backward compatibility with existing force-layout expectations (or when
+`elkjs` is not installed), pin the algorithm explicitly:
+
+```json
+"layout": {
+  "algorithm": "force-directed",
+  "width": 1600,
+  "height": 900,
+  "padding": 80,
+  "iterations": 300,
+  "crossingPenalty": 2
 }
 ```
 
@@ -137,8 +155,14 @@ coordinates receive deterministic UUID-derived placement. All nested edge
 types participate. Only encoded `leaf.appdata.position.x/y` changes; other
 node data and any existing `position.z` remain intact.
 
+Treat full-graph inclusion as mandatory for layout correctness: include every
+existing node and edge in the graph file, then apply additions/deletions in the
+manifest. Do not run `graphs[].layout` against a partial subgraph containing
+only the newly added component.
+
 Coordinates are React Flow top-left positions. Internally, layout uses node
-centers and the bundled editor-box sizing profile:
+centers and the bundled editor-box sizing profile. The sizing table and the
+edge-geometry force details below apply to the `force-directed` profile:
 
 | Editor category | Conservative outer box |
 | --- | --- |

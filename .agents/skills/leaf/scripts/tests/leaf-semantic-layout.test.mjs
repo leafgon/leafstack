@@ -56,6 +56,32 @@ const makeMixedGraph = () => {
   return { domain: "example", appid: "semantic", nodes };
 };
 
+const makeMixedCrossingGraph = () => {
+  const nodes = [
+    makeNode("data-left"),
+    makeNode("data-right"),
+    makeNode("lambda-top"),
+    makeNode("lambda-bottom"),
+  ];
+  const nodesByUuid = new Map(nodes.map((node) => [node.uuid, node]));
+  addEdge(nodesByUuid, "data", "data-left", "data-right", "leafdataedge");
+  addEdge(
+    nodesByUuid,
+    "lambda",
+    "lambda-top",
+    "lambda-bottom",
+    "leaflambdaedge",
+  );
+  addEdge(
+    nodesByUuid,
+    "anchor-join",
+    "lambda-top",
+    "data-left",
+    "leafanchoredge",
+  );
+  return { domain: "example", appid: "mixed-crossing", nodes };
+};
+
 const fakeElk = (calls) => ({
   async layout(input) {
     calls.push(input);
@@ -137,6 +163,7 @@ test("semantic layout defaults use the compact profile", () => {
       attraction: options.attraction,
       repulsion: options.repulsion,
       edgeRepulsion: options.edgeRepulsion,
+      crossingPenalty: options.crossingPenalty,
       edgeClearance: options.edgeClearance,
       gravity: options.gravity,
       boundaryRepulsion: options.boundaryRepulsion,
@@ -156,6 +183,7 @@ test("semantic layout defaults use the compact profile", () => {
       attraction: 0.35,
       repulsion: 0.18,
       edgeRepulsion: 0.1,
+      crossingPenalty: 0.5,
       edgeClearance: 12,
       gravity: 0.06,
       boundaryRepulsion: 0.15,
@@ -318,6 +346,51 @@ test("semantic layout validates directional option values", async () => {
   await assert.rejects(
     layoutLeafSemanticGraph(graph, { componentCompactionIterations: 0 }),
     /componentCompactionIterations must be an integer between 1 and 10000/,
+  );
+  await assert.rejects(
+    layoutLeafSemanticGraph(graph, { failOnMixedEdgeCrossing: "yes" }),
+    /failOnMixedEdgeCrossing must be a boolean/,
+  );
+});
+
+test("semantic layout can fail when data and lambda edges still cross", async () => {
+  const graph = makeMixedCrossingGraph();
+  const positions = new Map([
+    ["data-left", { x: 80, y: 300 }],
+    ["data-right", { x: 760, y: 300 }],
+    ["lambda-top", { x: 420, y: 60 }],
+    ["lambda-bottom", { x: 420, y: 560 }],
+  ]);
+
+  const bestEffort = await layoutLeafSemanticGraph(
+    graph,
+    {
+      initialTemperature: 0,
+      constraintIterations: 1,
+      collisionIterations: 1,
+      failOnOverlap: false,
+      failOnDirectionViolation: false,
+      failOnMixedEdgeCrossing: false,
+    },
+    { elk: fakeElkAt(positions) },
+  );
+
+  assert.equal(bestEffort.dataLambdaCrossingCount, 1);
+
+  await assert.rejects(
+    layoutLeafSemanticGraph(
+      graph,
+      {
+        initialTemperature: 0,
+        constraintIterations: 1,
+        collisionIterations: 1,
+        failOnOverlap: false,
+        failOnDirectionViolation: false,
+        failOnMixedEdgeCrossing: true,
+      },
+      { elk: fakeElkAt(positions) },
+    ),
+    /data-lambda crossing\(s\)/,
   );
 });
 

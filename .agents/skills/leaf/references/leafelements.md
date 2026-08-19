@@ -35,13 +35,13 @@ The release's metamodel allows 21 names. Runtime classification marks 18 as wire
 | `text` | Sink | Produces a text/editor descriptor from data or lambda source content; useful only with a UI renderer. |
 | `prompt` | UI bridge | Produces prompt controls from UI definitions and emits user responses through element IO; expects a UI host. |
 | `http` | Side-effecting action | Performs HTTP reads and writes from URI/header/mode configuration. Writes require explicit command identity, idempotency, bounded retry, and injected/available fetch. |
-| `href` | Side-effecting action | Performs browser navigation/replace/assign commands. Requires a location-like browser target and command identity; unsuitable for ordinary headless execution. |
+| `href` | Side-effecting action | Performs browser navigation/replace/assign commands. Generic mode is commonly driven by `_bname: "href-request"` with `_content.uri` and idempotency metadata. Requires a location-like browser target and command identity; unsuitable for ordinary headless execution. |
 | `mediaplayer` | Sink | Produces a media-player descriptor for a resolved URI and media play/pause/stop controls; expects a UI/media host. |
 | `image` | Sink | Produces an image visual descriptor from incoming image data/config; expects a UI renderer. |
 | `mediainput` | Source | Opens browser media capture and emits media records. Lifecycle is control-driven and permissions are host-provided. |
 | `midi` | Source | Opens MIDI input, emits device records, and supports outbound MIDI commands with browser-session duplicate suppression. Requires a MIDI-capable host. |
 | `sound` | Stateful transform | Builds/connects Tone-style sources, instruments, effects, and targets; consumes sound config/init/data bottles and performs playback commands. Requires an audio host. |
-| `html` | Pure transform | Templates data into an HTML/iframe visual descriptor and can route iframe messages through element IO. Rendering and message security belong to the host. Read [spa-pattern.md](spa-pattern.md) before using it as an application shell. |
+| `html` | Pure transform | Templates data into an HTML/iframe visual descriptor and can route iframe messages through element IO. Current adapter wiring emits iframe callback messages as `_bname: "elementio"` on the html node output stream. Rendering and message security belong to the host. Read [spa-pattern.md](spa-pattern.md) before using it as an application shell. |
 | `form` | UI bridge | Builds an HTML/JSON-schema form descriptor and emits submitted form data through element IO. Requires a UI/iframe host. |
 | `directus` | Side-effecting action | Performs Directus reads and create/update/upsert/delete operations. Mutations require endpoint, collection, credential handling, command identity, durable idempotency, and fetch transport. |
 | `hermes` | Side-effecting action | Sends Hermes egress commands and supports event reads through SSE/polling with cursor/dedupe behavior. Requires configured leaf-server/Hermes APIs, credentials, and durable idempotency for writes. |
@@ -85,3 +85,9 @@ For `http`, `href`, `directus`, `hermes`, `cortex`, and `blob`:
 - Redact credentials, headers, signed URLs, payloads, and provider errors.
 - Inject host transports/adapters instead of embedding environment credentials or URLs in reusable LEAF code.
 - Test duplicate commands, retry/replay, missing configuration, malformed bottles, and redaction.
+
+For `href` specifically:
+
+- Prefer explicit `href-request` bottles over ad hoc payload shapes in shared flows.
+- Include idempotency metadata; `allowGraphLocalFallback: true` is a practical bridge when the flow is graph-local.
+- Gate navigation by bottle name before `leafelement(href)` so non-navigation events cannot trigger location changes.

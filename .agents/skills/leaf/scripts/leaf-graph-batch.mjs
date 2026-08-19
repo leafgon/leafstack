@@ -7,6 +7,10 @@ import {
   leafOperationChangesTopology,
   normalizeLeafForceLayoutOptions,
 } from "./lib/leaf-force-layout.mjs";
+import {
+  layoutLeafSemanticGraph,
+  normalizeLeafSemanticLayoutOptions,
+} from "./lib/leaf-semantic-layout.mjs";
 
 const DEFAULT_ENDPOINT = "https://www.leafgon.com/qmgraphql";
 const FORMAT = "leaf.graph-batch.v1";
@@ -96,6 +100,32 @@ const graphKey = (domain, appid) => `${domain}/${appid}`;
 const clone = (value) => structuredClone(value);
 const sorted = (values) =>
   [...values].sort((left, right) => left.localeCompare(right));
+
+const normalizeLayout = (layout, label) => {
+  if (!layout || typeof layout !== "object" || Array.isArray(layout)) {
+    throw new Error(`${label} must be an object`);
+  }
+  const algorithm =
+    Object.hasOwn(layout, "algorithm") && layout.algorithm != null
+      ? layout.algorithm
+      : "semantic";
+  if (algorithm === "force-directed") {
+    return {
+      algorithm,
+      options: normalizeLeafForceLayoutOptions(layout, label),
+    };
+  }
+  if (algorithm === "semantic") {
+    const semanticDefaults = Object.hasOwn(layout, "crossingPenalty")
+      ? layout
+      : { ...layout, crossingPenalty: 0.5 };
+    return {
+      algorithm,
+      options: normalizeLeafSemanticLayoutOptions(semanticDefaults, label),
+    };
+  }
+  throw new Error(`${label}.algorithm must be force-directed or semantic`);
+};
 
 const requireString = (value, label) => {
   if (typeof value !== "string" || value.length === 0)
@@ -401,7 +431,7 @@ const loadManifest = async (batchFile) => {
       throw new Error(`multiple graph addresses use ${resolvedFile}`);
     graphFiles.add(resolvedFile);
     const layout = Object.hasOwn(item, "layout")
-      ? normalizeLeafForceLayoutOptions(item.layout, `graphs[${index}].layout`)
+      ? normalizeLayout(item.layout, `graphs[${index}].layout`)
       : undefined;
     graphSpecs.set(key, {
       domain,
@@ -438,7 +468,7 @@ const loadLocalGraphs = async (graphSpecs) => {
   return graphs;
 };
 
-const simulate = (sourceGraphs, graphSpecs, operations) => {
+const simulate = async (sourceGraphs, graphSpecs, operations) => {
   const graphs = new Map(
     [...sourceGraphs].map(([key, graph]) => [key, clone(graph)]),
   );
@@ -448,21 +478,28 @@ const simulate = (sourceGraphs, graphSpecs, operations) => {
     applyOperation(graphs.get(key), operation);
     const layout = graphSpecs.get(key).layout;
     if (layout && leafOperationChangesTopology(operation)) {
-      const result = layoutLeafGraph(graphs.get(key), layout);
+      const result =
+        layout.algorithm === "semantic"
+          ? await layoutLeafSemanticGraph(graphs.get(key), layout.options)
+          : layoutLeafGraph(graphs.get(key), layout.options);
       graphs.set(key, result.graph);
       layoutEvents.push({
         operation: operationIndex,
         graph: key,
+        algorithm: layout.algorithm,
         changedNodes: result.changedNodeUuids.length,
         nodeCount: result.nodeCount,
         edgeCount: result.edgeCount,
         overlapCount: result.overlapCount,
         edgeCrossingCount: result.edgeCrossingCount,
-        sharedSegmentCount: result.sharedSegmentCount,
-        edgeEdgeProximityCount: result.edgeEdgeProximityCount,
+        sharedSegmentCount: result.sharedSegmentCount ?? 0,
+        edgeEdgeProximityCount: result.edgeEdgeProximityCount ?? 0,
         edgeNodeIntersectionCount: result.edgeNodeIntersectionCount,
-        edgeNodeProximityCount: result.edgeNodeProximityCount,
-        minimumEdgeDistance: result.minimumEdgeDistance,
+        edgeNodeProximityCount: result.edgeNodeProximityCount ?? 0,
+        minimumEdgeDistance:
+          Object.hasOwn(result, "minimumEdgeDistance")
+            ? result.minimumEdgeDistance
+            : null,
       });
     }
     validateGraph(graphs.get(key), graphSpecs.get(key), key);
@@ -789,11 +826,13 @@ try {
   options = parseArgs(process.argv.slice(2));
   const batch = await loadManifest(options.batchFile);
   const layoutGraphs = sorted(
-    [...batch.graphSpecs].filter(([, spec]) => spec.layout).map(([key]) => key),
+    [...batch.graphSpecs]
+      .filter(([, spec]) => spec.layout)
+      .map(([key, spec]) => `${key} (${spec.layout.algorithm})`),
   );
   if (options.apply && layoutGraphs.length > 0) {
     throw new Error(
-      `force-directed layout is local-only; remove layout from ${layoutGraphs.join(", ")} before --apply`,
+      `local layout simulation is local-only; remove layout from ${layoutGraphs.join(", ")} before --apply`,
     );
   }
   const mutationMode = options.writeLocal || options.apply;
@@ -805,7 +844,7 @@ try {
 
   if (!options.apply) {
     const localGraphs = await loadLocalGraphs(batch.graphSpecs);
-    const simulation = simulate(
+    const simulation = await simulate(
       localGraphs,
       batch.graphSpecs,
       batch.operations,
@@ -864,10 +903,12 @@ try {
         leafEventCount: 0,
       });
     }
-    const expected = simulate(
+    const expected = (
+      await simulate(
       before,
       batch.graphSpecs,
       pendingOperations,
+      )
     ).graphs;
     for (const operation of pendingOperations) {
       try {

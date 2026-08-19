@@ -21,7 +21,7 @@ const DEFAULT_OPTIONS = Object.freeze({
   repulsion: 0.18,
   edgeRepulsion: 0.1,
   edgeNodeRepulsion: 0.5,
-  crossingPenalty: 1,
+  crossingPenalty: 0.5,
   sharedSegmentPenalty: 0.5,
   edgeClearance: 12,
   sharedSegmentTolerance: 8,
@@ -37,6 +37,7 @@ const DEFAULT_OPTIONS = Object.freeze({
   randomSeed: 1,
   failOnOverlap: true,
   failOnDirectionViolation: true,
+  failOnMixedEdgeCrossing: false,
   nodeDimensions: Object.freeze({}),
   elkOptions: Object.freeze({}),
 });
@@ -152,6 +153,7 @@ export const normalizeLeafSemanticLayoutOptions = (
     "componentCompaction",
     "failOnOverlap",
     "failOnDirectionViolation",
+    "failOnMixedEdgeCrossing",
   ]) {
     if (typeof options[name] !== "boolean") {
       throw new Error(`${label}.${name} must be a boolean`);
@@ -1564,6 +1566,7 @@ const calculateMetrics = (records, edges, positions, options) => {
   let lambdaLambdaCrossingCount = 0;
   let anchorAnchorCrossingCount = 0;
   let mixedEdgeCrossingCount = 0;
+  let dataLambdaCrossingCount = 0;
   for (let left = 0; left < edges.length; left += 1) {
     const a = edges[left];
     for (let right = left + 1; right < edges.length; right += 1) {
@@ -1587,7 +1590,15 @@ const calculateMetrics = (records, edges, positions, options) => {
         lambdaLambdaCrossingCount += 1;
       } else if (a.type === ANCHOR_EDGE && b.type === ANCHOR_EDGE) {
         anchorAnchorCrossingCount += 1;
-      } else mixedEdgeCrossingCount += 1;
+      } else {
+        mixedEdgeCrossingCount += 1;
+        if (
+          (a.type === DATA_EDGE && b.type === LAMBDA_EDGE) ||
+          (a.type === LAMBDA_EDGE && b.type === DATA_EDGE)
+        ) {
+          dataLambdaCrossingCount += 1;
+        }
+      }
     }
   }
 
@@ -1627,6 +1638,7 @@ const calculateMetrics = (records, edges, positions, options) => {
     lambdaLambdaCrossingCount,
     anchorAnchorCrossingCount,
     mixedEdgeCrossingCount,
+    dataLambdaCrossingCount,
     edgeNodeIntersectionCount,
   };
 };
@@ -1906,6 +1918,11 @@ export const layoutLeafSemanticGraph = async (
   ) {
     throw new Error(
       `semantic layout left ${metrics.dataDirectionViolationCount} data direction violation(s), ${metrics.lambdaDirectionViolationCount} lambda direction violation(s), and ${metrics.anchorDirectionViolationCount} anchor direction violation(s)`,
+    );
+  }
+  if (options.failOnMixedEdgeCrossing && metrics.dataLambdaCrossingCount > 0) {
+    throw new Error(
+      `semantic layout left ${metrics.dataLambdaCrossingCount} data-lambda crossing(s); set failOnMixedEdgeCrossing to false for best effort`,
     );
   }
 

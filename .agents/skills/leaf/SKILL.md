@@ -1,6 +1,6 @@
 ---
 name: leaf
-description: Develop, inspect, execute, lay out, and directly persist agent-authored LEAF graph programs using leaf-server node/edge GraphQL APIs and the GhostOS npm runtime. Use for LEAF graph JSON, force-directed canvas coordinates, multi-domain or multi-app local graph workspaces, reviewed CRUD batches, graph-based coding, GhostOS graph reduction/execution, LEAFlisp authoring, leafelement selection, leafelement(token) account-token configuration, or validation of LEAF programs. Keep this skill self-contained and rely on public interfaces only.
+description: Develop, inspect, execute, lay out, and directly persist agent-authored LEAF graph programs using leaf-server node/edge GraphQL APIs and the GhostOS npm runtime. Use for LEAF graph JSON, semantic or force-directed canvas coordinates, multi-domain or multi-app local graph workspaces, reviewed CRUD batches, graph-based coding, GhostOS graph reduction/execution, LEAFlisp authoring, leafelement selection, leafelement(token) account-token configuration, or validation of LEAF programs. Keep this skill self-contained and rely on public interfaces only.
 ---
 
 # Program in LEAF
@@ -32,6 +32,7 @@ Run the environment survey before mutations when needed:
 - Read [references/data-workflows.md](references/data-workflows.md) before designing multi-stage data workflows, reusable spells, routing, joins, stateful subflows, or anchor-based runtime exclusion and notes.
 - Read [references/leafmemoryio.md](references/leafmemoryio.md) before authoring named memory slots, read/derive/write flows, reset paths, or virgin `forget` nodes.
 - Read [references/leaflisp.md](references/leaflisp.md) before authoring or changing LEAFlisp.
+- Re-check `data-workflows.md` and `leaflisp.md` for version-qualified runtime caveats (for example `leafspell("{*}")` dispatch contract, `leaflabel("?<name>")` URL parsing, and strict-boolean LEAFlisp `if` conditions).
 - Read [references/leafelements.md](references/leafelements.md) before choosing or configuring a `leafelement`.
 - Read [references/spa-pattern.md](references/spa-pattern.md) before authoring or changing a browser-rendered single-page application, including its HTML host contract, assets, navigation, or release strategy.
 - Read [references/api-tokens.md](references/api-tokens.md) before creating, changing, rotating, revoking, or using a `leafelement(token)` pattern.
@@ -73,14 +74,19 @@ is ordered orchestration across separate authorized `/qmgraphql` requests, not
 an atomic cross-graph transaction. Re-query every affected address and stop on
 the first failure.
 
-Set `graphs[].layout` in a local batch to run the bundled deterministic
-force-directed helper after every node/edge add or delete. The helper updates
-only encoded `leaf.appdata.position.x/y`, using bundled editor-dimension
-heuristics to keep rendered boxes in bounds and separated. It also applies configurable
-edge/edge, edge/node, crossing, and shared-segment forces and returns geometry
-diagnostics for review. Read
+Set `graphs[].layout` in a local batch to run the bundled layout helpers after
+every node/edge add or delete. The batch default is
+`layout.algorithm: "semantic"` with a soft crossing penalty
+(`crossingPenalty: 0.5`) unless overridden. Use
+`layout.algorithm: "force-directed"` for the deterministic canvas-based
+layout profile. These helpers update only encoded
+`leaf.appdata.position.x/y`, using bundled editor-dimension heuristics to keep
+rendered boxes in bounds and separated while returning geometry diagnostics for
+review. Read
 [references/multi-graph-batches.md](references/multi-graph-batches.md) for the
-manifest shape and local-only boundary.
+manifest shape and local-only boundary. When layout is enabled, start from a
+full graph snapshot for each touched address (existing nodes plus planned
+changes); do not run layout on a partial/new-only subset.
 
 For mixed-plane human-readable topology, use the async
 `scripts/lib/leaf-semantic-layout.mjs` helper with `elkjs@0.12.0`. It seeds only

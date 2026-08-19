@@ -71,6 +71,7 @@ inputs or reviewed configuration.
 | `leafinflowport` | Declare a reusable component's input boundary. | Hiding additional undeclared inputs in host globals. |
 | `leafoutflowport` | Declare its observable result boundary. | Treating an internal node as the public result by convention. |
 | `leaflisp` | Perform a small deterministic shape or value transform. | Embedding an entire workflow, credentials, or implicit side effects. |
+| `leaflabel` | Emit a constant/configuration value in dataflow, including query-string extraction when `labelstr` is `?<name>`. | Assuming it rewrites pass-through data labels when explicit data inputs are connected. |
 | `leafgateflow` | Admit or reject a tagged event or matching value. | Using a gate as a general transform or allowing overlapping branches accidentally. |
 | `leafmixflow` | Rejoin independent streams or materialize named bottle content as an explicit keyed dictionary. | Assuming arrival order, freshness, replay behavior, or preserved bottle metadata. |
 | `leafmemoryio` | Read or update workflow state under an explicit runtime policy. | Assuming local memory is durable or replay-safe. |
@@ -140,6 +141,49 @@ same owning `leafspelldef`, or when every call belongs to the one main graph.
 When separate spell definitions import the same provider, give each definition
 its own `leafgraph`; never share one import node across definition boundaries.
 
+### Dispatch by runtime node UUID with `leafspell("{*}")`
+
+The selected GhostOS runtime supports a wildcard spell name `"{*}"` for
+generic dispatch. This is not ordinary name-based spellbook lookup. Instead,
+the data input must be a bottle with this shape:
+
+```json
+{
+  "_bname": "cast-spell",
+  "_content": {
+    "nodeuuid": "<target-node-uuid>",
+    "input": "<data to pass into the target>"
+  },
+  "_label": {}
+}
+```
+
+At runtime, GhostOS resolves the target by `nodeuuid` and executes that node's
+methods. Current core logic sanity-checks the target type and only accepts
+`leafspelldef` or `leaflabel` nodes for this generic dispatch path.
+
+Use this pattern deliberately:
+
+- Prefer normal named `leafspell` calls when a static interface exists.
+- Use wildcard dispatch only when runtime selection of the target node is
+  required.
+- Validate target UUID ownership/scope before dispatching to avoid accidental
+  cross-component execution.
+
+### Read URL query strings via `leaflabel("?<name>")`
+
+Current GhostOS `leaflabel` dataflow includes special handling for
+`labelstr` matching `^\?([A-Za-z0-9-]*)$`:
+
+- `"?topic"` reads `window.location.search` through `URLSearchParams`.
+- It emits a dictionary `{topic: "<value>"}` when the query parameter exists.
+- It emits `undefined` when the parameter is absent.
+
+Important runtime caveat: this special query-string behavior is applied only
+when the `leaflabel` has no explicit data-edge input. With explicit data
+inputs, current core logic follows pass-through behavior and does not apply the
+query extractor path.
+
 ### Route and rejoin events
 
 Normalize an event once, then branch on its bottle name or another explicit
@@ -174,6 +218,18 @@ matching gate emits for a mutually exclusive route. The enclosing `leafspell`
 call presents the selected result as one downstream stream. This shape passes
 representative two-branch execution under `ghostos@0.2.15`; qualify the exact
 graph and selected GhostOS release before persistence.
+
+For iframe-driven UI events, keep navigation/event dispatch explicit:
+
+```text
+leafspell({*}) -> gate(elementio) -> leaflisp(transform)
+               -> gate(href-request) -> leafelement(href)
+```
+
+Use the first gate to isolate iframe-originated element events and the second
+gate to admit only navigation commands. A focused `leaflisp` between them can
+normalize app-specific event bottles (for example `guide-nav`) into one stable
+`href-request` contract.
 
 Do not place a merge/default `leafmixflow` after sibling gates when one sibling
 can suppress its output unless the selected GhostOS release has a passing
