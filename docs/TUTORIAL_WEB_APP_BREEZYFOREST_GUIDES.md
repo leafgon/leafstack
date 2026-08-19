@@ -1,19 +1,22 @@
-# Tutorial: Build a LEAF web app like `leafgon/guides`
+# Tutorial: Build a LEAF web app (your namespace), with `breezyforest/guides` as reference
 
 This tutorial shows how to use your own agentic coding tool + this repo to
-create/update a browser-rendered LEAF namespace similar to
-`leafgon/guides`.
+create/update a browser-rendered LEAF web app in **your own** namespace
+(`<domain>/<appid>`).
 
-It assumes you are programming LEAF graphs through:
+It also includes `breezyforest/guides` as a reference example pattern, not as a
+required target.
+
+Use these endpoints:
 
 - API endpoint: `https://www.leafgon.com/qmgraphql`
-- Editor endpoint: `https://www.leafgon.com/editor/<domain>/<appid>`
+- Editor endpoint pattern: `https://www.leafgon.com/editor/<domain>/<appid>`
 
-Example target for this tutorial:
+Reference example namespace:
 
-- `domain`: `leafgon`
+- `domain`: `breezyforest`
 - `appid`: `guides`
-- Editor URL: `https://www.leafgon.com/editor/leafgon/guides`
+- Editor URL: `https://www.leafgon.com/editor/breezyforest/guides`
 
 ## What you will build
 
@@ -36,20 +39,26 @@ This follows the SPA guidance in:
 - Local clone of this repo.
 - `LEAFGON_API_TOKEN` exported in your current shell.
 
-## Step 1: Open the namespace in browser
+## Step 1: Open your own namespace in browser
 
-Open:
+Open your target namespace editor URL:
 
-`https://www.leafgon.com/editor/leafgon/guides`
+`https://www.leafgon.com/editor/<your-domain>/<your-appid>`
+
+Replace `<your-domain>/<your-appid>` with the namespace you actually own/use.
 
 Keep this tab open during development so you can quickly refresh and validate
 graph updates.
 
-## Step 2: Ask your agent to inspect current graph
+If you want to study a public reference, separately open:
+
+`https://www.leafgon.com/editor/breezyforest/guides`
+
+## Step 2: Ask your agent to inspect the current graph
 
 Use a prompt like:
 
-> Use the LEAF skill from this repo. Query `leafgon/guides` from
+> Use the LEAF skill from this repo. Query `<your-domain>/<your-appid>` from
 > `https://www.leafgon.com/qmgraphql`, decode nodes/edges, and summarize:
 > main/runtime component, spell definitions, anchored vs unanchored subgraphs,
 > and current navigation flow.
@@ -85,26 +94,31 @@ html click -> doelementio/doscreenio
 -> leafelement(href)
 ```
 
-For topic clicks, the emitted URL pattern can target:
+For topic clicks in your own namespace, emitted URL patterns should target your
+namespace, e.g.:
 
-`/editor/leafgon/guides?topic=<topic>`
+`/editor/<your-domain>/<your-appid>?topic=<topic>`
+
+Reference example pattern used in docs:
+
+`/editor/breezyforest/guides?topic=<topic>`
 
 Use a prompt like:
 
-> Apply the reviewed patch to `leafgon/guides`: add/update nodes and edges for
-> `guide-nav` bottle handling and href routing. Keep naming stable and preserve
-> existing runtime dataflow behavior.
+> Apply the reviewed patch to `<your-domain>/<your-appid>`: add/update nodes
+> and edges for `guide-nav` bottle handling and href routing. Keep naming stable
+> and preserve existing runtime dataflow behavior.
 
 ## Step 5: Verify in browser and via re-query
 
 After mutation acknowledgement:
 
-1. Refresh `https://www.leafgon.com/editor/leafgon/guides`.
+1. Refresh `https://www.leafgon.com/editor/<your-domain>/<your-appid>`.
 2. Click topic cards/links and verify navigation behavior.
 3. Re-run an agent prompt:
 
-> Re-query `leafgon/guides` and verify postconditions: expected new node UUIDs,
-> edge topology, and no unintended changes outside navigation flow.
+> Re-query `<your-domain>/<your-appid>` and verify postconditions: expected new
+> node UUIDs, edge topology, and no unintended changes outside navigation flow.
 
 ## Step 6: Iterate safely
 
@@ -126,20 +140,21 @@ Good follow-up improvements:
 
 ### Prompt A: Analyze current namespace
 
-> Use the LEAF skill in this repo. Inspect `leafgon/guides` from
+> Use the LEAF skill in this repo. Inspect `<your-domain>/<your-appid>` from
 > `https://www.leafgon.com/qmgraphql` and return a concise graph architecture
 > summary plus risks before editing.
 
 ### Prompt B: Plan minimal SPA patch
 
-> Propose a minimal patch for topic-based navigation in `leafgon/guides` using
-> a `guide-nav` bottle and gated href routing. Show operation order and why each
-> node/edge is needed.
+> Propose a minimal patch for topic-based navigation in
+> `<your-domain>/<your-appid>` using a `guide-nav` bottle and gated href
+> routing. Show operation order and why each node/edge is needed.
 
 ### Prompt C: Apply and verify
 
-> Apply the approved patch to `leafgon/guides`, then re-query and verify the
-> exact postconditions. Report acknowledgements, changed UUIDs, and any risk.
+> Apply the approved patch to `<your-domain>/<your-appid>`, then re-query and
+> verify the exact postconditions. Report acknowledgements, changed UUIDs, and
+> any risk.
 
 ## Troubleshooting
 
@@ -152,5 +167,4 @@ Good follow-up improvements:
 
 - Never paste raw token values into prompts, docs, or commits.
 - Keep `LEAFGON_API_TOKEN` in env/secret manager only.
-- Treat edits against `leafgon/guides` as live-state mutations.
-
+- Treat edits against your namespace as live-state mutations.

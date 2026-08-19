@@ -16,7 +16,7 @@ Reference endpoints in this guide:
 
 - GraphQL API: `https://www.leafgon.com/qmgraphql`
 - LEAF editor page: `https://www.leafgon.com/editor/<domain>/<appid>`
-- Example namespace page: `https://www.leafgon.com/editor/leafgon/guides`
+- Example namespace page: `https://www.leafgon.com/editor/breezyforest/guides`
 
 ## Getting Started
 
@@ -119,9 +119,9 @@ In your browser:
 3. Refresh or reload after mutation acknowledgement to confirm node/edge and
    coordinate updates.
 
-For the public example namespace used in the SPA docs, open:
+For the reference namespace used in the SPA docs, open:
 
-`https://www.leafgon.com/editor/leafgon/guides`
+`https://www.leafgon.com/editor/breezyforest/guides`
 
 For additional verification from terminal, re-query or inspect local snapshots
 using:
@@ -139,11 +139,11 @@ node .agents/skills/leaf/scripts/inspect-leaf-graph.mjs path/to/graph.json
 - `.agents/skills/leaf/scripts/validate-skill.sh`:
   validate the local skill package after edits.
 
-## Tutorial: build a LEAF web app (`leafgon/guides`)
+## Tutorial: build a LEAF web app (your namespace)
 
-See `TUTORIAL_WEB_APP_LEAFGON_GUIDES.md` for a step-by-step tutorial on using
-agentic LEAF programming to build/update a browser web app namespace similar to
-`leafgon/guides`.
+See `docs/TUTORIAL_WEB_APP_BREEZYFOREST_GUIDES.md` for a step-by-step tutorial
+on using agentic LEAF programming in your own `<domain>/<appid>`, with
+`breezyforest/guides` as a reference example.
 
 ## Security checklist
 
