@@ -141,9 +141,9 @@ node .agents/skills/leaf/scripts/inspect-leaf-graph.mjs path/to/graph.json
 
 ## Tutorial: build a LEAF web app (your namespace)
 
-See `docs/TUTORIAL_WEB_APP_BREEZYFOREST_GUIDES.md` for a step-by-step tutorial
-on using agentic LEAF programming in your own `<domain>/<appid>`, with
-`breezyforest/guides` as a reference example.
+See [Web app tutorial (`breezyforest/guides` reference)](docs/TUTORIAL_WEB_APP_BREEZYFOREST_GUIDES.md)
+for a step-by-step guide to using agentic LEAF programming in your own
+`<domain>/<appid>` namespace.
 
 ## Security checklist
 

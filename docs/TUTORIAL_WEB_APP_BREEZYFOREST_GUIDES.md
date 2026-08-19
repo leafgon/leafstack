@@ -138,6 +138,22 @@ Good follow-up improvements:
 
 ## Recommended prompts (copy/paste)
 
+### Prompt 0: Bootstrap from reference patterns
+
+> Use LEAF skills with `LEAFGON_API_TOKEN` for API auth and learn coding
+> patterns from graphs in namespace `breezyforest/guides`.
+
+### Prompt 0.1: Review source content
+
+> Review contents in `<contents source>` and summarize the sections, hierarchy,
+> and navigation model needed for an SPA presentation.
+
+### Prompt 0.2: Implement target SPA graph
+
+> Implement LEAF graphs for an SPA to present the contents in namespace
+> `<domain>/<appid>`. Reuse proven patterns from `breezyforest/guides`, then
+> show a minimal diff plan before applying mutations.
+
 ### Prompt A: Analyze current namespace
 
 > Use the LEAF skill in this repo. Inspect `<your-domain>/<your-appid>` from
