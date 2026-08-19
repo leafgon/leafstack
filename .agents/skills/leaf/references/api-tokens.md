@@ -5,9 +5,9 @@
 - Authority and topology
 - Author token settings
 - Scope and permission rules
+- Configurable route-family scopes for LEAF skills
 - Create and capture the secret
 - Update, revoke, and rotate
-- Privileged platform scope
 - Verify safely
 
 ## Authority and topology
@@ -15,7 +15,7 @@
 Treat `token` as a leaf-server graph-pattern lifecycle marker, not as a normal
 GhostOS `leafelement` adapter. Inspect the deployed leaf-server
 `src/leaf/api_tokens.py`, `src/leaf/config/graph_patterns.json`, and tests before
-relying on cached scopes or privileged behavior.
+relying on cached scopes or behavior.
 
 Create this exact topology in one graph:
 
@@ -93,7 +93,32 @@ false.
 
 Token scopes are an additional gate. They do not normally bypass account graph
 authorization. Every GraphQL mutation independently requires effective
-`graphql:write`, including privileged mutations.
+`graphql:write`, including high-risk mutations.
+
+## Configurable route-family scopes for LEAF skills
+
+The configurable token scopes for LEAF skill use are the deployed route-family
+scopes from `ALLOWED_SCOPES`:
+
+- `graphql:read`: allow graph reads (`getGraph` and equivalent read operations)
+  through `/qmgraphql`.
+- `graphql:write`: allow graph mutations through `/qmgraphql`. This is required
+  to add, update, or delete LEAF nodes/edges. It does not replace graph
+  write/admin/owner authorization checks.
+- `blob-storage:read`: allow reading blob objects exposed by the platform blob
+  APIs used by LEAF elements/workflows.
+- `blob-storage:write`: allow writing blob objects through blob APIs.
+- `cortex:read`: allow read operations against Cortex-family routes.
+- `cortex:write`: allow write operations against Cortex-family routes.
+- `hermes:read`: allow read operations against Hermes-family routes.
+- `hermes:write`: allow write operations against Hermes-family routes.
+
+Prefer least privilege:
+
+- For read-only graph inspection, use `{:scopes ["graphql:read"]}`.
+- For graph CRUD, use `{:scopes ["graphql:read" "graphql:write"]}`.
+- Add non-GraphQL route-family scopes only when the target LEAF workflow
+  requires those APIs.
 
 ## Create and capture the secret
 
@@ -134,30 +159,6 @@ is absent.
 Re-query the graph after every mutation, but treat leaf-server's private token
 store as the authentication authority. Graph reads and token metadata endpoints
 must never expose raw secrets or verifier hashes.
-
-## Privileged platform scope
-
-Never assume `platform:admin` exists merely because a LeafLisp expression can
-name it. Use it only when the deployed leaf-server declares and enforces the
-privileged scope. The guarded Breezyforest contract is:
-
-```text
-requested scopes contain platform:admin and graphql:write
-authenticated mutation actor is breezyforest
-effective token owner is breezyforest
-existing token owner, when updating, remains breezyforest
-```
-
-Example for a compatible deployment:
-
-```lisp
-{:scopes ["platform:admin" "graphql:write"]}
-```
-
-Any other actor or owner must be rejected rather than downgraded silently.
-`platform:admin` must stay outside the ordinary route-family permission matrix,
-and effective `graphql:write` remains mandatory for GraphQL mutations. If the
-deployed allowlist lacks this scope, stop and do not create the pattern.
 
 ## Verify safely
 
