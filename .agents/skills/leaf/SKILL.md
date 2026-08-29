@@ -1,6 +1,6 @@
 ---
 name: leaf
-description: Develop, inspect, execute, lay out, and directly persist agent-authored LEAF graph programs using leaf-server node/edge GraphQL APIs and the GhostOS npm runtime. Use for LEAF graph JSON, semantic or force-directed canvas coordinates, multi-domain or multi-app local graph workspaces, reviewed CRUD batches, graph-based coding, GhostOS graph reduction/execution, LEAFlisp authoring, leafelement selection, leafelement(token) account-token configuration, or validation of LEAF programs. Keep this skill self-contained and rely on public interfaces only.
+description: Develop, inspect, execute, lay out, render, and directly persist agent-authored LEAF graph programs using public Leafgon browser routes, leaf-server node/edge GraphQL APIs, and the GhostOS npm runtime. Use for LEAF graph JSON, browser-rendered graph captures, semantic or force-directed canvas coordinates, multi-domain or multi-app local graph workspaces, reviewed CRUD batches, graph-based coding, GhostOS graph reduction/execution, LEAFlisp authoring, leafelement selection, leafelement(token) account-token configuration, or validation of LEAF programs. Keep this skill self-contained and rely on public interfaces only.
 ---
 
 # Program in LEAF
@@ -35,8 +35,11 @@ Run the environment survey before mutations when needed:
 - Re-check `data-workflows.md` and `leaflisp.md` for version-qualified runtime caveats (for example `leafspell("{*}")` dispatch contract, `leaflabel("?<name>")` URL parsing, and strict-boolean LEAFlisp `if` conditions).
 - Read [references/leafelements.md](references/leafelements.md) before choosing or configuring a `leafelement`.
 - Read [references/spa-pattern.md](references/spa-pattern.md) before authoring or changing a browser-rendered single-page application, including its HTML host contract, assets, navigation, or release strategy.
+- Read [references/browser-capture.md](references/browser-capture.md) when capturing the actual public Leafgon editor canvas as an image.
+- Read [references/blob-storage.md](references/blob-storage.md) before storing files through a `leafelement(blob)` spelldef or reading blob metadata.
 - Read [references/api-tokens.md](references/api-tokens.md) before creating, changing, rotating, revoking, or using a `leafelement(token)` pattern.
 - Read [references/multi-graph-batches.md](references/multi-graph-batches.md) before constructing local multi-domain/app graph files or applying a CRUD batch.
+- Use `$leaf-blob-api` when the task is direct Blob API request/response troubleshooting rather than graph-program authoring.
 
 ## Use the direct agentic path
 
@@ -55,6 +58,29 @@ Inspect a graph fixture without executing it:
 
 ```sh
 node .agents/skills/leaf/scripts/inspect-leaf-graph.mjs path/to/graph.json
+```
+
+Capture a publicly browsable graph from the deployed Leafgon editor:
+
+```sh
+node .agents/skills/leaf/scripts/capture-leaf-editor.mjs \
+  --domain breezyforest \
+  --appid guides \
+  --main \
+  --output path/to/guides.jpg
+```
+
+Use `--spelldef <name>` instead of `--main` to isolate one exported spell graph.
+
+Store a file through a named blob spelldef and verify it:
+
+```sh
+node .agents/skills/leaf/scripts/leaf-blob-storage.mjs store \
+  --domain breezyforest \
+  --appid guides \
+  --spelldef storage \
+  --file path/to/image.jpg \
+  --token-env LEAFGON_API_TOKEN
 ```
 
 Do not hand-edit encoded payloads without decoding them. Treat `nodes[].out_edges` as the runtime edge source unless current leaf-server and GhostOS evidence proves otherwise.

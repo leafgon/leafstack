@@ -1,0 +1,4 @@
+interface:
+  display_name: "LEAF Blob API"
+  short_description: "Operate and troubleshoot Blob API flows"
+  default_prompt: "Use $leaf-blob-api to run safe, contract-accurate Blob API operations and diagnostics."
