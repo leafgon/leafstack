@@ -80,6 +80,7 @@ node .agents/skills/leaf/scripts/leaf-blob-storage.mjs store \
   --appid guides \
   --spelldef storage \
   --file path/to/image.jpg \
+  --description "Breezyforest Guides canvas image" \
   --token-env LEAFGON_API_TOKEN
 ```
 

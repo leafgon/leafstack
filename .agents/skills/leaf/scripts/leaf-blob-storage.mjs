@@ -4,7 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
-const usage = () => console.error(`usage: leaf-blob-storage.mjs store --domain <id> --appid <id> --spelldef <name> --file <path> [options]
+const usage = () => console.error(`usage: leaf-blob-storage.mjs store --domain <id> --appid <id> --spelldef <name> --file <path> --description <text> [options]
 
 options:
   --token-env <name>     bearer-token environment variable (default LEAFGON_API_TOKEN)
@@ -18,7 +18,7 @@ const options = { tokenEnv: "LEAFGON_API_TOKEN", endpoint: "https://www.leafgon.
 const valueOptions = new Map([
   ["--domain", "domain"], ["--appid", "appid"], ["--spelldef", "spelldef"],
   ["--file", "file"], ["--token-env", "tokenEnv"], ["--endpoint", "endpoint"],
-  ["--content-type", "contentType"],
+  ["--content-type", "contentType"], ["--description", "description"],
 ]);
 for (let index = 0; index < args.length; index += 1) {
   const argument = args[index];
@@ -35,6 +35,11 @@ if (!identifier.test(options.domain ?? "")) throw new Error("invalid --domain");
 if (!identifier.test(options.appid ?? "")) throw new Error("invalid --appid");
 if (!options.spelldef || options.spelldef.length > 128 || /[\u0000-\u001f\u007f]/.test(options.spelldef)) throw new Error("invalid --spelldef");
 if (!options.file) throw new Error("--file is required");
+if (typeof options.description !== "string" || options.description.trim().length === 0 ||
+    options.description.length > 512 || /[\u0000-\u001f\u007f]/.test(options.description)) {
+  throw new Error("--description is required and must be 1 to 512 printable characters");
+}
+options.description = options.description.trim();
 if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(options.tokenEnv)) throw new Error("invalid --token-env");
 const endpoint = new URL(options.endpoint);
 if (endpoint.protocol !== "https:" && endpoint.hostname !== "127.0.0.1" && endpoint.hostname !== "localhost") {
@@ -117,21 +122,43 @@ for (const byte of identityDigest) {
 }
 if (bits > 0) encoded += alphabet[(value << (5 - bits)) & 31];
 const objectId = encoded.slice(0, 32);
-const objectUrl = apiUrl(`api/v1/blob-storage/objects/${encodeURIComponent(options.domain)}/${encodeURIComponent(options.appid)}/${encodeURIComponent(blobElementId)}/${encodeURIComponent(objectId)}`);
-const safeBase = { graph: `${options.domain}/${options.appid}`, spelldef: options.spelldef, blobElementId, objectId, contentType, contentLength: bytes.length, contentHash };
+const objectCollectionUrl = apiUrl(`api/v1/blob-storage/objects/${encodeURIComponent(options.domain)}/${encodeURIComponent(options.appid)}/${encodeURIComponent(blobElementId)}`);
+const objectUrl = new URL(`${objectCollectionUrl.pathname}/${encodeURIComponent(objectId)}`, objectCollectionUrl);
+const safeBase = { graph: `${options.domain}/${options.appid}`, spelldef: options.spelldef, blobElementId, objectId, contentType, contentLength: bytes.length, contentHash, description: options.description };
 if (options.dryRun) { console.log(JSON.stringify({ ...safeBase, dryRun: true }, null, 2)); process.exit(0); }
+
+const verifyDescriptionEnrichment = async () => {
+  const response = await request(new URL(`${objectCollectionUrl.pathname}:list`, objectCollectionUrl), {
+    method: "POST", headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify({ schemaVersion: "ghostos.blob_list_bottle.v1", objectIds: [objectId],
+      correlationId: randomUUID() }),
+  });
+  if (!response.ok) throw new Error(`blob description enrichment verification failed with HTTP ${response.status}`);
+  const result = await response.json();
+  const item = Array.isArray(result?.items) ? result.items.find(candidate => candidate?.objectId === objectId) : undefined;
+  if (result?.schemaVersion !== "ghostos.blob_list_file.v1" ||
+      item?.objectMetadata?.description !== options.description) {
+    throw new Error("blob objectMetadata.description verification mismatch");
+  }
+};
 
 const head = await request(objectUrl, { method: "HEAD" });
 if (head.ok) {
+  const existingResponse = await request(objectUrl);
+  if (!existingResponse.ok) throw new Error(`blob metadata verification failed with HTTP ${existingResponse.status}`);
+  const existingMetadata = await existingResponse.json();
   const existing = {
     contentType: head.headers.get("x-blob-content-type"),
     contentLength: Number(head.headers.get("x-blob-content-length")),
     contentHash: head.headers.get("x-blob-content-hash"),
     assetRevision: Number(head.headers.get("x-blob-asset-revision")),
+    description: existingMetadata?.description,
   };
-  if (existing.contentType !== contentType || existing.contentLength !== bytes.length || existing.contentHash !== contentHash || !Number.isSafeInteger(existing.assetRevision)) {
+  if (existing.contentType !== contentType || existing.contentLength !== bytes.length || existing.contentHash !== contentHash ||
+      existing.description !== options.description || !Number.isSafeInteger(existing.assetRevision)) {
     throw new Error("deterministic object ID exists with mismatched metadata");
   }
+  await verifyDescriptionEnrichment();
   console.log(JSON.stringify({ ...safeBase, assetRevision: existing.assetRevision, wrote: false, verified: true }, null, 2));
   process.exit(0);
 }
@@ -153,7 +180,8 @@ const idempotencyKey = `leaf-blob-${digest.slice(0, 40)}`;
 const put = await request(objectUrl, {
   method: "PUT", headers: { "content-type": "application/json", "Idempotency-Key": idempotencyKey },
   body: JSON.stringify({ contentType, contentLength: bytes.length, contentHash,
-    payloadRef: { kind: "runtime-file-ref", ref: runtimeRef.ref }, operation: "create", correlationId }),
+    payloadRef: { kind: "runtime-file-ref", ref: runtimeRef.ref }, operation: "create",
+    description: options.description, correlationId }),
 });
 if (!put.ok) throw new Error(`blob store failed with HTTP ${put.status}`);
 const acknowledgement = await put.json();
@@ -163,7 +191,9 @@ const verifyResponse = await request(objectUrl);
 if (!verifyResponse.ok) throw new Error(`blob verification failed with HTTP ${verifyResponse.status}`);
 const verified = await verifyResponse.json();
 if (verified?.objectId !== objectId || verified?.blobElementId !== blobElementId || verified?.contentType !== contentType ||
-    verified?.contentLength !== bytes.length || verified?.contentHash !== contentHash || !Number.isSafeInteger(verified?.assetRevision)) {
+    verified?.contentLength !== bytes.length || verified?.contentHash !== contentHash ||
+    verified?.description !== options.description || !Number.isSafeInteger(verified?.assetRevision)) {
   throw new Error("blob verification metadata mismatch");
 }
+await verifyDescriptionEnrichment();
 console.log(JSON.stringify({ ...safeBase, assetRevision: verified.assetRevision, lastModifiedAt: verified.lastModifiedAt, wrote: true, verified: true }, null, 2));

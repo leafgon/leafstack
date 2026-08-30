@@ -45,13 +45,21 @@ test("store resolves a blob spelldef, writes once, and verifies metadata", async
     if (request.method === "PUT" && request.url?.startsWith("/api/v1/blob-storage/objects/")) {
       assert.match(request.headers["idempotency-key"], /^leaf-blob-[0-9a-f]{40}$/);
       assert.deepEqual(body.payloadRef, { kind: "runtime-file-ref", ref: "test-runtime-ref" });
+      assert.equal(body.description, "Test graph image");
       const objectId = request.url.split("/").at(-1);
       stored = { schemaVersion: "ghostos.blob_data_file.v1", blobElementId: blobId, objectId,
         contentType: body.contentType, contentLength: body.contentLength, contentHash: body.contentHash,
-        assetRevision: 1, lastModifiedAt: "2026-01-01T00:00:00Z" };
+        description: body.description, assetRevision: 1, lastModifiedAt: "2026-01-01T00:00:00Z" };
       return json(201, stored);
     }
     if (request.method === "GET" && request.url?.startsWith("/api/v1/blob-storage/objects/")) return json(200, stored);
+    if (request.method === "POST" && request.url?.endsWith(":list")) {
+      assert.equal(body.schemaVersion, "ghostos.blob_list_bottle.v1");
+      assert.deepEqual(body.objectIds, [stored.objectId]);
+      return json(200, { schemaVersion: "ghostos.blob_list_file.v1", items: [
+        { ...stored, objectMetadata: { description: stored.description } },
+      ] });
+    }
     json(404, {});
   });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
@@ -61,10 +69,21 @@ test("store resolves a blob spelldef, writes once, and verifies metadata", async
   await writeFile(file, Buffer.from("jpeg-test-payload"));
   const { stdout } = await execFileAsync(process.execPath, [script, "store", "--domain", "testdomain",
     "--appid", "testapp", "--spelldef", "storage", "--file", file, "--token-env", "TEST_LEAF_TOKEN",
+    "--description", "Test graph image",
     "--endpoint", `http://127.0.0.1:${server.address().port}`], { env: { ...process.env, TEST_LEAF_TOKEN: "test-token" } });
   const result = JSON.parse(stdout);
   assert.equal(result.wrote, true);
   assert.equal(result.verified, true);
   assert.equal(result.blobElementId, blobId);
   assert.equal(result.assetRevision, 1);
+  assert.equal(result.description, "Test graph image");
+});
+
+test("store rejects a missing description before making requests", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "leaf-blob-description-test-"));
+  const file = path.join(directory, "graph.jpg");
+  await writeFile(file, Buffer.from("jpeg-test-payload"));
+  await assert.rejects(execFileAsync(process.execPath, [script, "store", "--domain", "testdomain",
+    "--appid", "testapp", "--spelldef", "storage", "--file", file, "--dry-run"]),
+  /--description is required/);
 });

@@ -17,6 +17,8 @@ through runtime refs, listing blob objects, verifying `assetUrls` or
 - Keep credentials in environment variables only; never print token values.
 - Prefer read-only `GET` and `HEAD` probes. Mutate only when explicitly requested.
 - Keep payloads minimal and schema-versioned.
+- Require every blob-object `create` request to include a concise, non-empty
+  `description`; verify it through `objectMetadata.description` after creation.
 - Record the request path, body-file path, HTTP status, and request ID; never
   record secret-bearing payloads.
 
@@ -33,10 +35,12 @@ through runtime refs, listing blob objects, verifying `assetUrls` or
 1. Inspect the working tree and applicable repository instructions.
 2. Start with the narrowest read-only request that can answer the question.
 3. For upload, create a runtime ref and then `PUT` the object with an explicit
-   `create` or revision-guarded `overwrite` operation.
+   `create` or revision-guarded `overwrite` operation. A `create` body must
+   include a meaningful `description` suitable for `objectMetadata.description`.
 4. Verify mutations independently with `GET` or `HEAD`.
 5. For list diagnostics, compare the paginated `GET` inventory with the `:list`
-   contract response and its enrichment fields.
+   contract response and its enrichment fields. After creation, require the
+   returned `objectMetadata.description` to exactly match the submitted value.
 6. If GhostOS reports `missing_execution_context`, compare the direct API
    response before changing graph topology.
 

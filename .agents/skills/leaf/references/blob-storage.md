@@ -15,6 +15,7 @@ node .agents/skills/leaf/scripts/leaf-blob-storage.mjs store \
   --appid guides \
   --spelldef storage \
   --file artifacts/breezyforest-guides-main.jpg \
+  --description "Breezyforest Guides main canvas capture" \
   --token-env LEAFGON_BREEZYFOREST_TOKEN
 ```
 
@@ -26,11 +27,14 @@ helper never prints the token. It:
    one wired `leafelement(blob)` in that definition scope.
 3. Hashes the file, validates its supported media type and size, and derives the
    GhostOS-compatible deterministic object ID.
-4. Returns success without writing when authoritative metadata already matches.
-5. Otherwise creates a short-lived `leafgon.runtime_file_ref.v1`, then stores it
+4. Requires a concise, non-empty description for
+   `objectMetadata.description` and rejects an existing deterministic object
+   when its description does not match.
+5. Returns success without writing when authoritative metadata already matches.
+6. Otherwise creates a short-lived `leafgon.runtime_file_ref.v1`, then stores it
    with the versioned leaf-server blob API and a stable idempotency key.
-6. Fetches the object metadata independently and requires the object ID, content
-   type, length, hash, and revision to match.
+7. Fetches the object metadata independently and requires the object ID, content
+   type, length, hash, description, and revision to match.
 
 Use `--dry-run` to resolve topology and compute identity without creating a
 runtime file reference or blob. Pass `--content-type` only when extension-based
@@ -41,6 +45,8 @@ contract; the helper rejects unknown types rather than sending them.
 
 - Treat the returned object ID as the durable reference; a runtime-file-ref is
   short-lived and must not be persisted.
+- Never create a blob object without a meaningful `description`; do not use a
+  filename-only placeholder when a clearer human-readable description exists.
 - Do not retry a different body under the same object ID or idempotency key.
 - Do not log tokens, runtime refs, payload base64, signed locations, or raw
   provider failures.

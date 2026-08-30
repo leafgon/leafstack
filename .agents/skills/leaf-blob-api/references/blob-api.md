@@ -43,8 +43,25 @@ identity, blob element identity, content hash, and correlation ID.
 - Object operation: `PUT|GET|HEAD|DELETE
   /api/v1/blob-storage/objects/<domain>/<app>/<blobElement>/<objectId>`.
 - `PUT` accepts `operation` (`create` or `overwrite`), content type, length,
-  hash, a runtime-file payload reference, and correlation ID.
+  hash, a runtime-file payload reference, description, and correlation ID.
+- Every `create` request must include a concise, non-empty `description`. Do
+  not create an object with placeholder text or omit this field; it supplies
+  the enriched `objectMetadata.description` used to identify the object.
 - Require `expectedAssetRevision` for overwrite and safe deletion.
+
+Minimal creation fields include:
+
+```json
+{
+  "operation": "create",
+  "contentType": "text/html",
+  "contentLength": 123,
+  "contentHash": "sha256:<64-hex>",
+  "payloadRef": {"kind": "runtime-file-ref", "ref": "<opaque>"},
+  "description": "Breezyforest Guides introduction page",
+  "correlationId": "<id>"
+}
+```
 
 ## Contract list and enrichment
 
@@ -61,7 +78,9 @@ schema `ghostos.blob_list_bottle.v1`:
 
 `objectIds` is optional and, when present, must contain unique safe IDs. The
 `ghostos.blob_list_file.v1` response can enrich items with `assetUrls` and
-`objectMetadata` when reassessment context is available.
+`objectMetadata` when reassessment context is available. After `create`, query
+this contract and require `objectMetadata.description` to equal the submitted
+description before reporting the object as fully verified.
 
 ## Common diagnostics
 
