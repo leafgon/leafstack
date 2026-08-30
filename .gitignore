@@ -1,1 +1,13 @@
 artifacts/
+.tmp
+.DS_Store
+.env
+.env.*
+!.env.example
+.netrc
+.npmrc
+node_modules/
+*.key
+*.pem
+*.p12
+*.pfx

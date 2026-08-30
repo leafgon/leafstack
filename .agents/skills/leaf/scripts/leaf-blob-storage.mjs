@@ -176,11 +176,22 @@ const runtimeRef = await runtimeRefResponse.json();
 if (runtimeRef?.schemaVersion !== "leafgon.runtime_file_ref.v1" || runtimeRef?.kind !== "runtime-file-ref" || typeof runtimeRef.ref !== "string") {
   throw new Error("runtime file ref response is invalid");
 }
+const resolveResponse = await request(apiUrl(`api/v1/blob-storage/runtime-file-refs/${encodeURIComponent(runtimeRef.ref)}:resolve`), {
+  method: "POST", headers: { "content-type": "application/json", accept: "application/json" },
+  body: JSON.stringify({ graphDomainId: options.domain, graphAppId: options.appid, blobElementId,
+    contentHash, correlationId }),
+});
+if (!resolveResponse.ok) throw new Error(`runtime file ref resolution failed with HTTP ${resolveResponse.status}`);
+const resolved = await resolveResponse.json();
+if (resolved?.payloadRef?.kind !== "temp-file" || typeof resolved.payloadRef.ref !== "string" ||
+    resolved.contentType !== contentType || resolved.contentLength !== bytes.length || resolved.contentHash !== contentHash) {
+  throw new Error("runtime file ref resolution response is invalid");
+}
 const idempotencyKey = `leaf-blob-${digest.slice(0, 40)}`;
 const put = await request(objectUrl, {
   method: "PUT", headers: { "content-type": "application/json", "Idempotency-Key": idempotencyKey },
   body: JSON.stringify({ contentType, contentLength: bytes.length, contentHash,
-    payloadRef: { kind: "runtime-file-ref", ref: runtimeRef.ref }, operation: "create",
+    payloadRef: resolved.payloadRef, operation: "create",
     description: options.description, correlationId }),
 });
 if (!put.ok) throw new Error(`blob store failed with HTTP ${put.status}`);

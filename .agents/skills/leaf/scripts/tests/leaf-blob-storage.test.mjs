@@ -42,9 +42,14 @@ test("store resolves a blob spelldef, writes once, and verifies metadata", async
       assert.ok(body.payloadBase64);
       return json(201, { schemaVersion: "leafgon.runtime_file_ref.v1", kind: "runtime-file-ref", ref: "test-runtime-ref", expiresAt: "2099-01-01T00:00:00Z" });
     }
+    if (request.method === "POST" && request.url === "/api/v1/blob-storage/runtime-file-refs/test-runtime-ref:resolve") {
+      assert.equal(body.blobElementId, blobId);
+      return json(200, { payloadRef: { kind: "temp-file", ref: "test-temp-file" }, contentType: "image/jpeg",
+        contentLength: 17, contentHash: body.contentHash });
+    }
     if (request.method === "PUT" && request.url?.startsWith("/api/v1/blob-storage/objects/")) {
       assert.match(request.headers["idempotency-key"], /^leaf-blob-[0-9a-f]{40}$/);
-      assert.deepEqual(body.payloadRef, { kind: "runtime-file-ref", ref: "test-runtime-ref" });
+      assert.deepEqual(body.payloadRef, { kind: "temp-file", ref: "test-temp-file" });
       assert.equal(body.description, "Test graph image");
       const objectId = request.url.split("/").at(-1);
       stored = { schemaVersion: "ghostos.blob_data_file.v1", blobElementId: blobId, objectId,
