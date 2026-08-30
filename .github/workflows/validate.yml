@@ -1,0 +1,27 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Inspect the LEAF workspace
+        run: .agents/skills/leaf/scripts/inspect-leaf-workspace.sh
+      - name: Validate the LEAF skill
+        run: .agents/skills/leaf/scripts/validate-skill.sh
+      - name: Validate the blob API skill
+        run: bash .agents/skills/leaf-blob-api/scripts/validate-skill.sh

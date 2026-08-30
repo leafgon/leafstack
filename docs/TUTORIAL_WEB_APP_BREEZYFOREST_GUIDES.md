@@ -35,7 +35,9 @@ This follows the SPA guidance in:
 
 - A Leafgon account.
 - Write/admin/owner permission for your target namespace.
-- A `leafelement(token)` token with at least `graphql:write` scope.
+- A `leafelement(token)` token with `graphql:read`, `graphql:write`, and
+  `blob-storage:write` scopes. Graph access is needed to author and resolve the
+  LEAF topology; blob write access is needed to publish the HTML assets.
 - Local clone of this repo.
 - `LEAFGON_API_TOKEN` exported in your current shell.
 
