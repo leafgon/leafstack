@@ -35,6 +35,8 @@ log the ref. Resolve when necessary with
 `POST /api/v1/blob-storage/runtime-file-refs/<ref>:resolve`, providing graph
 identity, blob element identity, content hash, and correlation ID.
 
+`<ref>:resolve` is a `POST` contract route; it does not support `HEAD`.
+
 ## Object inventory and CRUD
 
 - Paginated inventory: `GET /api/v1/blob-storage/objects/<domain>/<app>/<blobElement>`
@@ -42,6 +44,9 @@ identity, blob element identity, content hash, and correlation ID.
   `ghostos.blob_data_file_page.v1`.
 - Object operation: `PUT|GET|HEAD|DELETE
   /api/v1/blob-storage/objects/<domain>/<app>/<blobElement>/<objectId>`.
+- Raw object bytes: `GET|HEAD
+  /api/v1/blob-storage/objects/<domain>/<app>/<blobElement>/<objectId>:download`.
+  Use `HEAD` for header-only verification and `GET` when bytes are required.
 - `PUT` accepts `operation` (`create` or `overwrite`), content type, length,
   hash, a runtime-file payload reference, description, and correlation ID.
 - Every `create` request must include a concise, non-empty `description`. Do
@@ -57,11 +62,13 @@ Minimal creation fields include:
   "contentType": "text/html",
   "contentLength": 123,
   "contentHash": "sha256:<64-hex>",
-  "payloadRef": {"kind": "runtime-file-ref", "ref": "<opaque>"},
+  "payloadRef": {"kind": "temp-file", "ref": "<opaque>"},
   "description": "Breezyforest Guides introduction page",
   "correlationId": "<id>"
 }
 ```
+
+The `payloadRef` above comes from the `<ref>:resolve` response.
 
 ## Contract list and enrichment
 
@@ -81,6 +88,8 @@ schema `ghostos.blob_list_bottle.v1`:
 `objectMetadata` when reassessment context is available. After `create`, query
 this contract and require `objectMetadata.description` to equal the submitted
 description before reporting the object as fully verified.
+
+`<blobElement>:list` is a `POST` contract route; it does not support `HEAD`.
 
 ## Common diagnostics
 

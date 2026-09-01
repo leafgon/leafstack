@@ -53,5 +53,6 @@ contract; the helper rejects unknown types rather than sending them.
 - Report graph address, spelldef, blob element UUID, object ID, content metadata,
   asset revision, whether a write occurred, and verification status.
 - Metadata verification proves the storage service accepted the exact hash and
-  length. Download and compare bytes separately when a task explicitly requires
-  byte-for-byte retrieval evidence.
+  length. For byte-for-byte retrieval evidence, first probe `HEAD`
+  `/api/v1/blob-storage/objects/<domain>/<app>/<blobElement>/<objectId>:download`,
+  then run `GET` on that same route and compare the downloaded file hash.
