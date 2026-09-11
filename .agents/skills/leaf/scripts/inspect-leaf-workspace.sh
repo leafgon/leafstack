@@ -45,8 +45,13 @@ reference_files=(
   "${skill_dir}/references/architecture.md"
   "${skill_dir}/references/leaf-server-api.md"
   "${skill_dir}/references/graph-runtime.md"
+  "${skill_dir}/references/jsonld-workflow.md"
   "${skill_dir}/scripts/inspect-leaf-graph.mjs"
+  "${skill_dir}/scripts/leaf-jsonld-build.mjs"
+  "${skill_dir}/scripts/leaf-jsonld-export.mjs"
+  "${skill_dir}/scripts/leaf-jsonld-workflow.mjs"
   "${skill_dir}/scripts/leaf-graph-batch.mjs"
+  "${skill_dir}/scripts/run-leaf-graph.mjs"
   "${skill_dir}/scripts/run-leaflisp.mjs"
 )
 

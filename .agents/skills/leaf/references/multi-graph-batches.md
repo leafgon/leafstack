@@ -6,6 +6,7 @@
 - Local graph files
 - Batch manifest
 - Local planning and writes
+- Offline authoring-only workflow
 - Local layout
 - Remote apply and synchronization
 - Ordering and failure semantics
@@ -38,8 +39,8 @@ Keep edges nested in their source node's `out_edges`. Store node and edge
 `data` as base64-encoded JSON. The batch tool also accepts decoded JSON objects
 in operation payloads and encodes them before writing or submission.
 
-Use files as working snapshots, not as persistence authority. Re-query
-leaf-server after remote changes.
+Use files as the authoritative offline authoring artifacts. They are not proof
+of remote persistence authority. Re-query leaf-server after remote changes.
 
 When a graph declaration uses `graphs[].layout`, the local file must represent
 the full current graph state for that address before simulation (all existing
@@ -252,6 +253,46 @@ node .agents/skills/leaf/scripts/leaf-graph-batch.mjs path/to/batch.json \
 
 Then inspect and execute each affected graph with the graph inspector and the
 selected GhostOS npm release.
+
+`--write-local` output stays in the same transport DTO shape consumed by
+GhostOS (`nodes[].uuid`, base64 node/edge `data`, nested `out_edges`). That
+JSON is directly runnable with `executeLEAFGraph`.
+
+## Offline authoring-only workflow
+
+Use this when the task is to author LEAF graph constructs in JSON files without
+touching live APIs.
+
+1. Declare every target graph file in `graphs[]`.
+2. Author node/edge constructs in `operations[]`.
+3. Run the planner and review the digest.
+4. Run `--write-local` with the reviewed digest.
+5. Inspect every changed graph file.
+6. Execute representative inputs locally with `run-leaf-graph.mjs`.
+
+Do not pass `--apply`, `--token-env`, or `--confirm-endpoint` in this mode.
+Those options are only for live leaf-server persistence.
+
+For a copy-ready starter, use
+`references/examples/offline-batch.json` with
+`references/examples/offline-graph.json`.
+
+If JSON-LD is your offline source format, compile first and then run batch or
+execution tooling against the generated transport DTO graph file:
+
+```sh
+node .agents/skills/leaf/scripts/leaf-jsonld-build.mjs \
+  --jsonld path/to/graph.jsonld \
+  --out path/to/graph.json
+```
+
+Run executable fixtures locally:
+
+```sh
+node .agents/skills/leaf/scripts/run-leaf-graph.mjs \
+  --graph path/to/graph.json \
+  --input path/to/input.json
+```
 
 ## Remote apply and synchronization
 
