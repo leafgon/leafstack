@@ -1,6 +1,6 @@
 ---
 name: leaf
-description: Develop, inspect, execute, lay out, render, and directly persist agent-authored LEAF graph programs using public Leafgon browser routes, leaf-server node/edge GraphQL APIs, and the GhostOS npm runtime. Use for LEAF graph JSON, browser-rendered graph captures, semantic or force-directed canvas coordinates, multi-domain or multi-app local graph workspaces, reviewed CRUD batches, graph-based coding, GhostOS graph reduction/execution, LEAFlisp authoring, leafelement selection, leafelement(token) account-token configuration, or validation of LEAF programs. Keep this skill self-contained and rely on public interfaces only.
+description: Develop, inspect, execute, lay out, render, and author LEAF graph programs either offline in local JSON files or through direct leaf-server node/edge GraphQL persistence using public Leafgon routes and the GhostOS npm runtime. Use for LEAF graph JSON, browser-rendered graph captures, semantic or force-directed canvas coordinates, multi-domain or multi-app local graph workspaces, reviewed CRUD batches, graph-based coding, GhostOS graph reduction/execution, LEAFlisp authoring, leafelement selection, leafelement(token) account-token configuration, or validation of LEAF programs. Keep this skill self-contained and rely on public interfaces only.
 ---
 
 # Program in LEAF
@@ -12,11 +12,12 @@ Ordinary graph authoring should not require private repository access.
 Record generalized node contracts, safe topology patterns, version caveats,
 and validation procedures here when runtime investigation reveals them.
 
-1. Confirm the exact graph domain/app ID, leaf-server endpoint, environment, authorization mechanism, and requested mutations.
-2. Use this skill's bundled references as primary guidance for payload shape and safety checks.
-3. Use the latest `ghostos` npm release unless the user or target project specifies an exact version.
-4. Validate any uncertain API behavior through direct GraphQL query/mutation acknowledgement plus authoritative re-query.
-5. Do not rely on private `leaf-server`, `ghostos`, or `piper` repositories for ordinary LEAF programming.
+1. Confirm whether the task is offline JSON authoring only or live leaf-server persistence, then capture the exact graph domain/app IDs and requested changes.
+2. For live persistence work, confirm the leaf-server endpoint, environment, and authorization mechanism before any mutation.
+3. Use this skill's bundled references as primary guidance for payload shape and safety checks.
+4. Use the latest `ghostos` npm release unless the user or target project specifies an exact version.
+5. Validate uncertain live API behavior through direct GraphQL query/mutation acknowledgement plus authoritative re-query.
+6. Do not rely on private `leaf-server`, `ghostos`, or `piper` repositories for ordinary LEAF programming.
 
 Run the environment survey before mutations when needed:
 
@@ -27,21 +28,117 @@ Run the environment survey before mutations when needed:
 ## Load only the needed model
 
 - Read [references/architecture.md](references/architecture.md) for the direct agentic path, authority boundaries, npm version policy, and evidence sources.
-- Read [references/leaf-server-api.md](references/leaf-server-api.md) before any graph read or node/edge mutation.
+- Read [references/leaf-server-api.md](references/leaf-server-api.md) before any live graph read or node/edge mutation.
 - Read [references/graph-runtime.md](references/graph-runtime.md) for graph JSON, edge planes, component analysis, eta reduction, and execution.
 - Read [references/data-workflows.md](references/data-workflows.md) before designing multi-stage data workflows, reusable spells, routing, joins, stateful subflows, or anchor-based runtime exclusion and notes.
 - Read [references/leafmemoryio.md](references/leafmemoryio.md) before authoring named memory slots, read/derive/write flows, reset paths, or virgin `forget` nodes.
 - Read [references/leaflisp.md](references/leaflisp.md) before authoring or changing LEAFlisp.
+- Read [references/jsonld-workflow.md](references/jsonld-workflow.md) when JSON-LD is the offline storage format and conversion to executable transport DTO JSON is required.
+- Read [references/offline-validation.md](references/offline-validation.md) when validating task-pack contract DAG edges and acceptance vectors for offline authored graphs.
 - Re-check `data-workflows.md` and `leaflisp.md` for version-qualified runtime caveats (for example `leafspell("{*}")` dispatch contract, `leaflabel("?<name>")` URL parsing, and strict-boolean LEAFlisp `if` conditions).
 - Read [references/leafelements.md](references/leafelements.md) before choosing or configuring a `leafelement`.
 - Read [references/spa-pattern.md](references/spa-pattern.md) before authoring or changing a browser-rendered single-page application, including its HTML host contract, assets, navigation, or release strategy.
 - Read [references/browser-capture.md](references/browser-capture.md) when capturing the actual public Leafgon editor canvas as an image.
 - Read [references/blob-storage.md](references/blob-storage.md) before storing files through a `leafelement(blob)` spelldef or reading blob metadata.
 - Read [references/api-tokens.md](references/api-tokens.md) before creating, changing, rotating, revoking, or using a `leafelement(token)` pattern.
-- Read [references/multi-graph-batches.md](references/multi-graph-batches.md) before constructing local multi-domain/app graph files or applying a CRUD batch.
+- Read [references/multi-graph-batches.md](references/multi-graph-batches.md) before offline JSON authoring, constructing local multi-domain/app graph files, or applying a CRUD batch.
 - Use `$leaf-blob-api` when the task is direct Blob API request/response troubleshooting rather than graph-program authoring.
 
-## Use the direct agentic path
+## Use the offline JSON authoring path
+
+Use this path when the user wants file-based LEAF graph authoring without live
+API writes.
+
+1. Define every target `<domain-id>/<app-id>` and one local JSON graph file per address.
+2. Model graph constructs either as `leaf.graph-batch.v1` operations or as JSON-LD source that compiles to transport DTO graph JSON.
+3. Plan with `leaf-graph-batch.mjs` and review the digest.
+4. Save reviewed results using `--write-local` and `--confirm`.
+5. Require written graph files to use the LEAF transport DTO (`nodes[].uuid`, `leafnodetype`, base64 `data`, nested `out_edges`) so they run directly with `executeLEAFGraph`.
+6. Inspect each written graph with `inspect-leaf-graph.mjs` and run focused GhostOS checks when behavior matters.
+7. Hand off the updated JSON and batch files as the authoritative offline artifacts.
+
+Plan first without writing:
+
+```sh
+node .agents/skills/leaf/scripts/leaf-graph-batch.mjs path/to/batch.json
+```
+
+Then save the reviewed change set locally:
+
+```sh
+node .agents/skills/leaf/scripts/leaf-graph-batch.mjs path/to/batch.json \
+  --write-local \
+  --confirm sha256:REVIEWED_DIGEST
+```
+
+Execute a local graph fixture with GhostOS `executeLEAFGraph`:
+
+```sh
+node .agents/skills/leaf/scripts/run-leaf-graph.mjs \
+  --graph path/to/graph.json \
+  --refnode target-node-uuid \
+  --input path/to/input.json
+```
+
+Validate a task-pack DAG contract without counting spell support wiring:
+
+```sh
+node .agents/skills/leaf/scripts/validate-dag-contract.mjs \
+  --graph path/to/graph.json \
+  --required path/to/required-data-edges.json
+```
+
+Run acceptance vectors for the same executable graph:
+
+```sh
+node .agents/skills/leaf/scripts/run-acceptance-vectors.mjs \
+  --graph path/to/graph.json \
+  --vectors path/to/acceptance-vectors.json
+```
+
+Never store LEAF graphs in a custom top-level `nodes` + `edges` schema under
+this skill. Use one of two allowed forms only:
+
+1. Transport DTO graph JSON (`domain`, `appid`, `nodes[].uuid`, base64
+   `data`, nested `out_edges`) for executable fixtures and persistence tooling.
+2. JSON-LD source (`.jsonld`) for enriched semantic metadata/context that
+   deterministically compiles to transport DTO graph JSON.
+
+When JSON-LD is the source of truth, compile it before execution:
+
+```sh
+node .agents/skills/leaf/scripts/leaf-jsonld-build.mjs \
+  --jsonld path/to/graph.jsonld \
+  --out path/to/graph.json
+```
+
+For one-command JSON-LD flow (build, inspect, execute, optional roundtrip):
+
+```sh
+node .agents/skills/leaf/scripts/leaf-jsonld-workflow.mjs \
+  --jsonld path/to/graph.jsonld \
+  --graph-out path/to/graph.json \
+  --refnode target-node-uuid \
+  --input path/to/input.json
+```
+
+Make alias:
+
+```sh
+make leaf-jsonld-workflow ARGS="--jsonld path/to/graph.jsonld --skip-run"
+```
+
+Starter example files are included at
+`references/examples/offline-batch.json` and
+`references/examples/offline-graph.json`.
+
+For reusable skill fixtures, keep graph/contract/vector files under
+`references/examples/` instead of `artifacts/`.
+JSON-LD starter source is `references/examples/offline-graph.jsonld`.
+
+## Use the direct agentic persistence path
+
+Use this path only when the task explicitly requires live leaf-server writes.
 
 Work in this order:
 
@@ -100,6 +197,9 @@ Use the printed digest for an explicit local write or live apply. A live batch
 is ordered orchestration across separate authorized `/qmgraphql` requests, not
 an atomic cross-graph transaction. Re-query every affected address and stop on
 the first failure.
+
+For offline-only authoring, stop after local write plus local validation and do
+not run live apply.
 
 Set `graphs[].layout` in a local batch to run the bundled layout helpers after
 every node/edge add or delete. The batch default is
@@ -179,7 +279,9 @@ Stop for tech-lead direction before introducing a breaking DTO, edge type, Graph
 
 - Run the graph inspector before and after local graph edits.
 - Run focused LEAFlisp or GhostOS execution tests using the resolved npm version.
-- Re-query leaf-server after each mutation group and assert IDs, payloads, topology, and component shape.
+- Re-query leaf-server after each live mutation group and assert IDs, payloads, topology, and component shape.
+- For offline-only authoring, require reviewed batch digest, successful `--write-local`, post-write graph inspection for each changed file, and at least one `run-leaf-graph.mjs` execution check on changed executable fixtures.
+- For offline task packs with explicit dependency specs, require a passing `validate-dag-contract.mjs` run plus passing `run-acceptance-vectors.mjs` results.
 - If a task includes runtime/library code changes outside this skill, run that target project's documented checks.
 - For ordinary LEAF programming, treat mutation acknowledgement plus authoritative re-query as the required persistence verification.
 
@@ -189,4 +291,4 @@ Validate this skill package after editing it:
 .agents/skills/leaf/scripts/validate-skill.sh
 ```
 
-At handoff, report summary, files changed, commands run, GhostOS version, graph/environment targeted, mutation acknowledgements, verification results, and remaining risks.
+At handoff, report summary, files changed, commands run, GhostOS version, graph/environment targeted, whether work stayed offline or touched live APIs, mutation acknowledgements (if any), verification results, and remaining risks.

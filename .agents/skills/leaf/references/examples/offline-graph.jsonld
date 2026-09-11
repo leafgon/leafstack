@@ -1,0 +1,73 @@
+{
+  "@context": "https://leafgon.com/ns/leaf-graph-jsonld/v1",
+  "@id": "leaf://example/offline-jsonld-sample",
+  "@type": "LeafGraph",
+  "domain": "example",
+  "appid": "offline-jsonld-sample",
+  "nodes": [
+    {
+      "@id": "leaf://example/offline-jsonld-sample/node/node-start",
+      "@type": "LeafNode",
+      "uuid": "node-start",
+      "leafnodetype": "leaflabel",
+      "data": {
+        "leaf": {
+          "api": "breezyforest",
+          "logic": {
+            "type": "leaflabel",
+            "args": {
+              "labelstr": "start"
+            }
+          },
+          "appdata": {
+            "position": {
+              "x": 120,
+              "y": 200
+            }
+          }
+        }
+      }
+    },
+    {
+      "@id": "leaf://example/offline-jsonld-sample/node/node-finish",
+      "@type": "LeafNode",
+      "uuid": "node-finish",
+      "leafnodetype": "leaflabel",
+      "data": {
+        "leaf": {
+          "api": "breezyforest",
+          "logic": {
+            "type": "leaflabel",
+            "args": {
+              "labelstr": "finish"
+            }
+          },
+          "appdata": {
+            "position": {
+              "x": 460,
+              "y": 200
+            }
+          }
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "@id": "leaf://example/offline-jsonld-sample/edge/edge-start-finish",
+      "@type": "LeafEdge",
+      "uuid": "edge-start-finish",
+      "source": "node-start",
+      "target": "node-finish",
+      "edgeType": "leafdataedge",
+      "data": {
+        "leaf": {
+          "api": "breezyforest",
+          "logic": {
+            "type": "leafdataedge"
+          }
+        }
+      }
+    }
+  ]
+}

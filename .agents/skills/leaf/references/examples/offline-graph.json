@@ -1,0 +1,29 @@
+{
+  "domain": "example",
+  "appid": "offline-jsonld-sample",
+  "nodes": [
+    {
+      "uuid": "node-start",
+      "leafnodetype": "leaflabel",
+      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmbGFiZWwiLCJhcmdzIjp7ImxhYmVsc3RyIjoic3RhcnQifX0sImFwcGRhdGEiOnsicG9zaXRpb24iOnsieCI6MTIwLCJ5IjoyMDB9fX19",
+      "out_edges": [
+        {
+          "uuid": "edge-start-finish",
+          "source": {
+            "uuid": "node-start"
+          },
+          "target": {
+            "uuid": "node-finish"
+          },
+          "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmZGF0YWVkZ2UifX19"
+        }
+      ]
+    },
+    {
+      "uuid": "node-finish",
+      "leafnodetype": "leaflabel",
+      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmbGFiZWwiLCJhcmdzIjp7ImxhYmVsc3RyIjoiZmluaXNoIn19LCJhcHBkYXRhIjp7InBvc2l0aW9uIjp7IngiOjQ2MCwieSI6MjAwfX19fQ==",
+      "out_edges": []
+    }
+  ]
+}

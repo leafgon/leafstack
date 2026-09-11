@@ -47,6 +47,10 @@ Do not depend on a separate top-level `edges` list. Current leaf-server graph
 queries nest edges under the source node, and GhostOS reconstruction derives
 edges from `nodes[].out_edges`.
 
+Under this skill, transport DTO graph JSON is the only executable `.json`
+format. When additional metadata/context is needed, keep that data in `.jsonld`
+and compile it to transport DTO before execution.
+
 ## Encoded payloads
 
 Node `data` decodes to JSON resembling:
@@ -263,6 +267,9 @@ const output = await executeLEAFGraph(graph, input, {
 });
 ```
 
+When your storage artifact is JSON-LD, convert it to the transport DTO shape
+before execution. See [jsonld-workflow.md](jsonld-workflow.md).
+
 Pass real `leafio`, `leaflakeio`, memory, and context when a graph performs nested graph queries, subscriptions, UI operations, or host-specific work. Wrapper defaults are intentionally minimal.
 
 ## Data/control semantics
@@ -311,5 +318,22 @@ node .agents/skills/leaf/scripts/inspect-leaf-graph.mjs graph.json
 ```
 
 The script reports node types, edge types, dataflow components, start/end nodes, malformed payloads, duplicate IDs, and missing references without printing decoded program contents.
+
+Execute the same fixture with GhostOS `executeLEAFGraph`:
+
+```sh
+node .agents/skills/leaf/scripts/run-leaf-graph.mjs \
+  --graph graph.json \
+  --refnode target-node-uuid \
+  --input input.json
+```
+
+The harness resolves `ghostos@latest` by default, verifies the locally
+installed package version, then runs `executeLEAFGraph(graph, input, options)`.
+
+When spell-definition support nodes/edges are present, inspection can show
+additional components/start/end nodes outside the primary task-pack data DAG.
+Treat this as expected runtime scaffolding. Validate strict data-DAG contracts
+separately with `validate-dag-contract.mjs`.
 
 Then inspect the fixture's actual decoded payloads only where needed, using the selected `ghostos` npm codecs or a narrowly scoped local command that does not expose secrets.

@@ -1,0 +1,84 @@
+{
+  "format": "leaf.graph-batch.v1",
+  "graphs": [
+    {
+      "domain": "example",
+      "appid": "offline-sample",
+      "file": "offline-graph.json"
+    }
+  ],
+  "operations": [
+    {
+      "op": "addNode",
+      "domain": "example",
+      "appid": "offline-sample",
+      "node": {
+        "uuid": "node-start",
+        "leafnodetype": "leaflabel",
+        "data": {
+          "leaf": {
+            "api": "breezyforest",
+            "logic": {
+              "type": "leaflabel",
+              "args": {
+                "labelstr": "start"
+              }
+            },
+            "appdata": {
+              "position": {
+                "x": 120,
+                "y": 200
+              }
+            }
+          }
+        },
+        "out_edges": []
+      }
+    },
+    {
+      "op": "addNode",
+      "domain": "example",
+      "appid": "offline-sample",
+      "node": {
+        "uuid": "node-finish",
+        "leafnodetype": "leaflabel",
+        "data": {
+          "leaf": {
+            "api": "breezyforest",
+            "logic": {
+              "type": "leaflabel",
+              "args": {
+                "labelstr": "finish"
+              }
+            },
+            "appdata": {
+              "position": {
+                "x": 460,
+                "y": 200
+              }
+            }
+          }
+        },
+        "out_edges": []
+      }
+    },
+    {
+      "op": "addEdge",
+      "domain": "example",
+      "appid": "offline-sample",
+      "edge": {
+        "uuid": "edge-start-finish",
+        "source": "node-start",
+        "target": "node-finish",
+        "data": {
+          "leaf": {
+            "api": "breezyforest",
+            "logic": {
+              "type": "leafdataedge"
+            }
+          }
+        }
+      }
+    }
+  ]
+}
