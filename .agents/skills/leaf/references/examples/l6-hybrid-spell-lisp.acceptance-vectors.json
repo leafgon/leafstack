@@ -1,0 +1,25 @@
+{
+  "refnode": "OUT1",
+  "cases": [
+    {
+      "case": 1,
+      "input": {
+        "IN1": 4,
+        "IN2": 9
+      },
+      "expected": {
+        "OUT1": 22
+      }
+    },
+    {
+      "case": 2,
+      "input": {
+        "IN1": 10,
+        "IN2": 1
+      },
+      "expected": {
+        "OUT1": 60
+      }
+    }
+  ]
+}

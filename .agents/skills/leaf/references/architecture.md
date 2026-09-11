@@ -59,10 +59,14 @@ This skill is intentionally self-contained for public LEAF programming.
 | leaf-server `/sgraphql` | Optional graph observation | Authenticated subscription boundary |
 | `ghostos` npm package | Encode/decode, inspect, reduce, execute, and test LEAF programs | Public parser/runtime release selected for the task |
 | local graph JSON + batch manifest | Offline authoring artifact, multi-domain/app simulation, and reviewed change plan | Authoritative offline deliverable; remote persistence still requires `/qmgraphql` apply plus re-query |
+| local JSON-LD graph source | Semantic metadata/context layer that compiles deterministically to transport DTO graph JSON | Optional authoring format only; not executed directly |
 | Dgraph behind leaf-server | Persistent graph store | Never bypass leaf-server for ordinary agentic programming |
 
 Do not call Dgraph directly or treat client-local cache/subscription timing as
 persistence proof.
+
+Do not introduce a third custom graph schema in `.json` beyond transport DTO.
+If richer metadata is required, use JSON-LD and compile to transport DTO.
 
 ## GhostOS npm policy
 
@@ -117,10 +121,13 @@ Use this skill package as the reference set:
 - `references/leaf-server-api.md`: concrete `/qmgraphql` query + mutation patterns.
 - `references/graph-runtime.md`: graph shape, runtime invariants, and inspection workflow.
 - `references/jsonld-workflow.md`: JSON-LD source authoring and deterministic conversion into executable transport DTO JSON.
+- `references/offline-validation.md`: task-pack DAG contract and acceptance vector validation workflow.
 - `references/multi-graph-batches.md`: batch manifest, digest review, and ordered applies.
 - `references/examples/offline-batch.json`: starter offline manifest for local JSON authoring.
 - `references/examples/offline-graph.json`: starter local graph snapshot paired with the offline manifest.
 - `references/examples/offline-graph.jsonld`: starter JSON-LD source that compiles to executable transport DTO graph JSON.
+- `references/examples/l6-hybrid-spell-lisp.required-data-edges.json`: sample authoritative task-pack data-edge contract list.
+- `references/examples/l6-hybrid-spell-lisp.acceptance-vectors.json`: sample executable acceptance vector list.
 - `references/leaflisp.md`: LEAFlisp authoring and execution guidance.
 - `references/leafelements.md`: supported element catalog and cautions.
 - `scripts/inspect-leaf-graph.mjs`: static graph invariant inspection.
@@ -129,6 +136,8 @@ Use this skill package as the reference set:
 - `scripts/leaf-jsonld-workflow.mjs`: one-command wrapper for build, inspect, execute, and optional JSON-LD roundtrip export.
 - `scripts/leaf-graph-batch.mjs`: local planning and optional ordered apply tooling.
 - `scripts/run-leaf-graph.mjs`: npm-version-aware `executeLEAFGraph` harness for local graph JSON fixtures.
+- `scripts/validate-dag-contract.mjs`: checks required contract data edges/reachability against executable graph JSON.
+- `scripts/run-acceptance-vectors.mjs`: executes vector files against graph fixtures and reports pass/fail.
 - `scripts/run-leaflisp.mjs`: npm-version-aware LEAFlisp execution.
 
 ## Validation map
@@ -140,5 +149,7 @@ Use this skill package as the reference set:
 | Edge add/delete | Validate endpoints/type, capture persisted edge UUID, then authoritative re-query |
 | Topology change | Run graph inspector and check affected dataflow/lambda/anchor component |
 | Offline local batch | Review digest, run `--write-local`, inspect every changed graph file with the graph inspector, then execute representative cases through `run-leaf-graph.mjs` |
+| Task-pack contract DAG | Validate required data-edge contract/reachability with `validate-dag-contract.mjs`, allowing support wiring that does not change contract semantics |
+| Task-pack acceptance vectors | Execute vectors through `run-acceptance-vectors.mjs` and require all-pass output |
 | Multi-graph CRUD batch | Validate every local graph, review digest and endpoint, apply ordered scoped requests, then re-query every address |
 | `leafelement` use | Confirm allowed + wired status, config, execution context, and idempotency requirements |

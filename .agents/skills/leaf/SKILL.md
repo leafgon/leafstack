@@ -34,6 +34,7 @@ Run the environment survey before mutations when needed:
 - Read [references/leafmemoryio.md](references/leafmemoryio.md) before authoring named memory slots, read/derive/write flows, reset paths, or virgin `forget` nodes.
 - Read [references/leaflisp.md](references/leaflisp.md) before authoring or changing LEAFlisp.
 - Read [references/jsonld-workflow.md](references/jsonld-workflow.md) when JSON-LD is the offline storage format and conversion to executable transport DTO JSON is required.
+- Read [references/offline-validation.md](references/offline-validation.md) when validating task-pack contract DAG edges and acceptance vectors for offline authored graphs.
 - Re-check `data-workflows.md` and `leaflisp.md` for version-qualified runtime caveats (for example `leafspell("{*}")` dispatch contract, `leaflabel("?<name>")` URL parsing, and strict-boolean LEAFlisp `if` conditions).
 - Read [references/leafelements.md](references/leafelements.md) before choosing or configuring a `leafelement`.
 - Read [references/spa-pattern.md](references/spa-pattern.md) before authoring or changing a browser-rendered single-page application, including its HTML host contract, assets, navigation, or release strategy.
@@ -79,10 +80,29 @@ node .agents/skills/leaf/scripts/run-leaf-graph.mjs \
   --input path/to/input.json
 ```
 
-Do not use a custom top-level `nodes` + `edges` authoring schema as the
-primary handoff artifact when execution is required. Offline deliverables must
-stay in the transport graph DTO shape described by
-`references/graph-runtime.md`.
+Validate a task-pack DAG contract without counting spell support wiring:
+
+```sh
+node .agents/skills/leaf/scripts/validate-dag-contract.mjs \
+  --graph path/to/graph.json \
+  --required path/to/required-data-edges.json
+```
+
+Run acceptance vectors for the same executable graph:
+
+```sh
+node .agents/skills/leaf/scripts/run-acceptance-vectors.mjs \
+  --graph path/to/graph.json \
+  --vectors path/to/acceptance-vectors.json
+```
+
+Never store LEAF graphs in a custom top-level `nodes` + `edges` schema under
+this skill. Use one of two allowed forms only:
+
+1. Transport DTO graph JSON (`domain`, `appid`, `nodes[].uuid`, base64
+   `data`, nested `out_edges`) for executable fixtures and persistence tooling.
+2. JSON-LD source (`.jsonld`) for enriched semantic metadata/context that
+   deterministically compiles to transport DTO graph JSON.
 
 When JSON-LD is the source of truth, compile it before execution:
 
@@ -111,6 +131,9 @@ make leaf-jsonld-workflow ARGS="--jsonld path/to/graph.jsonld --skip-run"
 Starter example files are included at
 `references/examples/offline-batch.json` and
 `references/examples/offline-graph.json`.
+
+For reusable skill fixtures, keep graph/contract/vector files under
+`references/examples/` instead of `artifacts/`.
 JSON-LD starter source is `references/examples/offline-graph.jsonld`.
 
 ## Use the direct agentic persistence path
@@ -258,6 +281,7 @@ Stop for tech-lead direction before introducing a breaking DTO, edge type, Graph
 - Run focused LEAFlisp or GhostOS execution tests using the resolved npm version.
 - Re-query leaf-server after each live mutation group and assert IDs, payloads, topology, and component shape.
 - For offline-only authoring, require reviewed batch digest, successful `--write-local`, post-write graph inspection for each changed file, and at least one `run-leaf-graph.mjs` execution check on changed executable fixtures.
+- For offline task packs with explicit dependency specs, require a passing `validate-dag-contract.mjs` run plus passing `run-acceptance-vectors.mjs` results.
 - If a task includes runtime/library code changes outside this skill, run that target project's documented checks.
 - For ordinary LEAF programming, treat mutation acknowledgement plus authoritative re-query as the required persistence verification.
 

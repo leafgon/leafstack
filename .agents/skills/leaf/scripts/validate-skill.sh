@@ -13,6 +13,7 @@ required_files=(
   "references/blob-storage.md"
   "references/graph-runtime.md"
   "references/jsonld-workflow.md"
+  "references/offline-validation.md"
   "references/leaflisp.md"
   "references/leaf-server-api.md"
   "references/leafelements.md"
@@ -20,6 +21,8 @@ required_files=(
   "references/examples/offline-batch.json"
   "references/examples/offline-graph.json"
   "references/examples/offline-graph.jsonld"
+  "references/examples/l6-hybrid-spell-lisp.required-data-edges.json"
+  "references/examples/l6-hybrid-spell-lisp.acceptance-vectors.json"
   "scripts/inspect-leaf-workspace.sh"
   "scripts/capture-leaf-editor.mjs"
   "scripts/leaf-blob-storage.mjs"
@@ -27,6 +30,8 @@ required_files=(
   "scripts/leaf-jsonld-export.mjs"
   "scripts/leaf-jsonld-workflow.mjs"
   "scripts/inspect-leaf-graph.mjs"
+  "scripts/validate-dag-contract.mjs"
+  "scripts/run-acceptance-vectors.mjs"
   "scripts/lib/leaf-force-layout.mjs"
   "scripts/lib/leaf-jsonld.mjs"
   "scripts/lib/leaf-semantic-layout.mjs"
@@ -40,6 +45,8 @@ required_files=(
   "scripts/tests/leaf-jsonld-tools.test.mjs"
   "scripts/tests/leaf-jsonld-workflow.test.mjs"
   "scripts/tests/leaf-graph-batch.test.mjs"
+  "scripts/tests/validate-dag-contract.test.mjs"
+  "scripts/tests/run-acceptance-vectors.test.mjs"
   "scripts/tests/run-leaf-graph.test.mjs"
   "scripts/tests/leaf-semantic-layout.test.mjs"
   "scripts/tests/leaf-topology-layout.test.mjs"
@@ -52,6 +59,60 @@ for relative_path in "${required_files[@]}"; do
     exit 1
   fi
 done
+
+node - <<'NODE' "${skill_dir}"
+const fs = require("fs");
+const path = require("path");
+
+const skillDir = process.argv[2];
+const violations = [];
+
+const walk = (directory) => {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const fullPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      walk(fullPath);
+      continue;
+    }
+    if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
+
+    let payload;
+    try {
+      payload = JSON.parse(fs.readFileSync(fullPath, "utf8"));
+    } catch {
+      continue;
+    }
+    if (!payload || typeof payload !== "object") continue;
+    if (!Array.isArray(payload.nodes)) continue;
+
+    const firstNode = payload.nodes.find(
+      (node) => node && typeof node === "object" && !Array.isArray(node),
+    );
+    const hasTopLevelEdges = Array.isArray(payload.edges);
+    const looksLegacyNode =
+      firstNode &&
+      Object.hasOwn(firstNode, "id") &&
+      Object.hasOwn(firstNode, "type") &&
+      !Object.hasOwn(firstNode, "uuid");
+
+    if (hasTopLevelEdges || looksLegacyNode) {
+      violations.push(path.relative(skillDir, fullPath));
+    }
+  }
+};
+
+walk(skillDir);
+
+if (violations.length > 0) {
+  console.error(
+    `error: disallowed non-JSON-LD graph schema detected in .json file(s): ${violations.join(", ")}`,
+  );
+  console.error(
+    "use transport DTO .json or .jsonld source compiled into transport DTO .json",
+  );
+  process.exit(1);
+}
+NODE
 
 if [[ "$(sed -n '1p' "${skill_file}")" != "---" ]]; then
   echo "error: SKILL.md must start with YAML frontmatter" >&2
@@ -86,6 +147,8 @@ node --check "${script_dir}/leaf-blob-storage.mjs"
 node --check "${script_dir}/leaf-jsonld-build.mjs"
 node --check "${script_dir}/leaf-jsonld-export.mjs"
 node --check "${script_dir}/leaf-jsonld-workflow.mjs"
+node --check "${script_dir}/validate-dag-contract.mjs"
+node --check "${script_dir}/run-acceptance-vectors.mjs"
 node --check "${script_dir}/lib/leaf-force-layout.mjs"
 node --check "${script_dir}/lib/leaf-jsonld.mjs"
 node --check "${script_dir}/lib/leaf-semantic-layout.mjs"
@@ -99,6 +162,8 @@ node --test "${script_dir}/tests/leaf-blob-storage.test.mjs"
 node --test "${script_dir}/tests/leaf-jsonld-tools.test.mjs"
 node --test "${script_dir}/tests/leaf-jsonld-workflow.test.mjs"
 node --test "${script_dir}/tests/leaf-graph-batch.test.mjs"
+node --test "${script_dir}/tests/validate-dag-contract.test.mjs"
+node --test "${script_dir}/tests/run-acceptance-vectors.test.mjs"
 node --test "${script_dir}/tests/run-leaf-graph.test.mjs"
 node --test "${script_dir}/tests/leaf-semantic-layout.test.mjs"
 node --test "${script_dir}/tests/leaf-topology-layout.test.mjs"

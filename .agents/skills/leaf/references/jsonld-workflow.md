@@ -11,6 +11,10 @@ Source of truth options:
 - Transport DTO graph JSON for direct execution (`executeLEAFGraph`) and server
   compatibility.
 
+Do not introduce a third graph storage shape. A plain `.json` file containing a
+custom top-level `nodes` + `edges` schema is not an allowed LEAF graph artifact
+under this skill.
+
 ## JSON-LD shape
 
 Use this envelope:
@@ -51,6 +55,8 @@ Rules:
 - Keep edges explicit in `edges[]`; conversion re-nests them into source
   `out_edges` for transport DTO output.
 - Keep `data` decoded JSON in JSON-LD; conversion handles base64 encoding.
+- Keep JSON-LD source files on the `.jsonld` extension so transport DTO `.json`
+  files remain unambiguous executable artifacts.
 
 ## Tight helper workflow
 

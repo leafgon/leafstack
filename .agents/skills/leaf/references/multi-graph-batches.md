@@ -42,6 +42,14 @@ in operation payloads and encodes them before writing or submission.
 Use files as the authoritative offline authoring artifacts. They are not proof
 of remote persistence authority. Re-query leaf-server after remote changes.
 
+Only two graph artifact forms are allowed in this skill:
+
+1. Transport DTO `.json` files as shown above.
+2. JSON-LD `.jsonld` source that is compiled into transport DTO `.json`.
+
+Do not store graphs in a third custom `.json` schema with top-level `nodes` and
+`edges` fields that differ from transport DTO.
+
 When a graph declaration uses `graphs[].layout`, the local file must represent
 the full current graph state for that address before simulation (all existing
 nodes/edges, not only newly authored additions). Otherwise layout can position
@@ -269,6 +277,7 @@ touching live APIs.
 4. Run `--write-local` with the reviewed digest.
 5. Inspect every changed graph file.
 6. Execute representative inputs locally with `run-leaf-graph.mjs`.
+7. For task packs, run contract DAG and acceptance vector checks.
 
 Do not pass `--apply`, `--token-env`, or `--confirm-endpoint` in this mode.
 Those options are only for live leaf-server persistence.
@@ -292,6 +301,18 @@ Run executable fixtures locally:
 node .agents/skills/leaf/scripts/run-leaf-graph.mjs \
   --graph path/to/graph.json \
   --input path/to/input.json
+```
+
+Task-pack contract and vector validation:
+
+```sh
+node .agents/skills/leaf/scripts/validate-dag-contract.mjs \
+  --graph path/to/graph.json \
+  --required path/to/required-data-edges.json
+
+node .agents/skills/leaf/scripts/run-acceptance-vectors.mjs \
+  --graph path/to/graph.json \
+  --vectors path/to/acceptance-vectors.json
 ```
 
 ## Remote apply and synchronization
