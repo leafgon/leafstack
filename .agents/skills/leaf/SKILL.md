@@ -36,7 +36,7 @@ Run the environment survey before mutations when needed:
 - Read [references/jsonld-workflow.md](references/jsonld-workflow.md) when JSON-LD is the offline storage format and conversion to executable transport DTO JSON is required.
 - Read [references/offline-validation.md](references/offline-validation.md) when validating task-pack contract DAG edges and acceptance vectors for offline authored graphs.
 - Re-check `data-workflows.md` and `leaflisp.md` for version-qualified runtime caveats (for example `leafspell("{*}")` dispatch contract, `leaflabel("?<name>")` URL parsing, and strict-boolean LEAFlisp `if` conditions).
-- Read [references/leafelements.md](references/leafelements.md) before choosing or configuring a `leafelement`.
+- Read [references/leafelements.md](references/leafelements.md) before choosing or configuring a `leafelement`, including `http` request/response bottle shape and browser CORS requirements.
 - Read [references/spa-pattern.md](references/spa-pattern.md) before authoring or changing a browser-rendered single-page application, including its HTML host contract, assets, navigation, or release strategy.
 - Read [references/browser-capture.md](references/browser-capture.md) when capturing the actual public Leafgon editor canvas as an image.
 - Read [references/blob-storage.md](references/blob-storage.md) before storing files through a `leafelement(blob)` spelldef or reading blob metadata.
