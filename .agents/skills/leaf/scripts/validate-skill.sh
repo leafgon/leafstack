@@ -126,15 +126,33 @@ if [[ -z "${frontmatter_end}" ]]; then
 fi
 
 frontmatter="$(sed -n "2,$((frontmatter_end - 1))p" "${skill_file}")"
-if [[ "$(printf '%s\n' "${frontmatter}" | rg -c '^name: leaf$')" -ne 1 ]]; then
+count_pattern() {
+  local pattern="$1"
+  if command -v rg >/dev/null 2>&1; then
+    printf '%s\n' "${frontmatter}" | rg -c -- "${pattern}"
+  else
+    printf '%s\n' "${frontmatter}" | grep -E -c -- "${pattern}"
+  fi
+}
+
+has_line_outside_allowed() {
+  local allowed_pattern='^(name|description): '
+  if command -v rg >/dev/null 2>&1; then
+    printf '%s\n' "${frontmatter}" | rg -q -v -- "${allowed_pattern}"
+  else
+    printf '%s\n' "${frontmatter}" | grep -E -q -v -- "${allowed_pattern}"
+  fi
+}
+
+if [[ "$(count_pattern '^name: leaf$')" -ne 1 ]]; then
   echo "error: SKILL.md must declare exactly 'name: leaf'" >&2
   exit 1
 fi
-if [[ "$(printf '%s\n' "${frontmatter}" | rg -c '^description: .+')" -ne 1 ]]; then
+if [[ "$(count_pattern '^description: .+')" -ne 1 ]]; then
   echo "error: SKILL.md must declare one non-empty description" >&2
   exit 1
 fi
-if printf '%s\n' "${frontmatter}" | rg -q -v '^(name|description): '; then
+if has_line_outside_allowed; then
   echo "error: SKILL.md frontmatter may contain only name and description" >&2
   exit 1
 fi
