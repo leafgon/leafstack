@@ -8,8 +8,18 @@ for relative_path in "${required_files[@]}"; do
   [[ -f "${skill_dir}/${relative_path}" ]] || { echo "error: missing ${relative_path}" >&2; exit 1; }
 done
 [[ "$(sed -n '1p' "${skill_dir}/SKILL.md")" == "---" ]] || { echo "error: invalid frontmatter" >&2; exit 1; }
-rg -q '^name: leaf-blob-api$' "${skill_dir}/SKILL.md"
-rg -q '^description: .+' "${skill_dir}/SKILL.md"
+match_q() {
+  local pattern="$1"
+  local file="$2"
+  if command -v rg >/dev/null 2>&1; then
+    rg -q -- "${pattern}" "${file}"
+  else
+    grep -E -q -- "${pattern}" "${file}"
+  fi
+}
+
+match_q '^name: leaf-blob-api$' "${skill_dir}/SKILL.md"
+match_q '^description: .+' "${skill_dir}/SKILL.md"
 bash -n "${script_dir}/blob-api-request.sh"
 bash -n "${script_dir}/blob-contract-list.sh"
 bash -n "${script_dir}/blob-download.sh"
