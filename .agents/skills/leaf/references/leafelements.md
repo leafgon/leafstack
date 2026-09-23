@@ -9,6 +9,7 @@
 - Blocked elements
 - Non-registry source artifacts
 - Side-effect rules
+- HTTP request/response pattern
 
 ## Catalogue authority
 
@@ -85,6 +86,42 @@ For `http`, `href`, `directus`, `hermes`, `cortex`, and `blob`:
 - Redact credentials, headers, signed URLs, payloads, and provider errors.
 - Inject host transports/adapters instead of embedding environment credentials or URLs in reusable LEAF code.
 - Test duplicate commands, retry/replay, missing configuration, malformed bottles, and redaction.
+
+## HTTP request/response pattern
+
+Use this pattern when `leafelement(http)` must send a request and return the
+response payload:
+
+1. Emit a bottle named `http-request` from upstream logic (typically
+   `leaflisp`).
+2. Set `http-request._content` with:
+   - `uri`: absolute target URL
+   - `mode`: `"get"`, `"post"`, or `"put"`
+   - `header`: request headers (`{"content-type":"application/json"}` for JSON writes)
+   - `data`: request payload object for `post`/`put`
+3. Gate by bottle name before `leafelement(http)` so unrelated bottles cannot
+   trigger network requests.
+4. Expect downstream output as an `elementio` bottle and parse the response from
+   `_content`:
+   - success pattern: `_bname: "elementio"`, `_content: <response-json>`
+   - failure pattern: `_bname: "elementio"`, `_content: null`
+   - guard by bottle name (for example, gate on `elementio`) before response
+     parsing so unrelated bottles do not enter the HTTP response path.
+5. Treat `elementio._content === null` as transport/runtime failure and branch
+   to retry, fallback, or explicit error handling.
+
+Browser-hosted execution uses `fetch(..., { credentials: "include" })`. If the
+target API is local (for example `http://localhost:8080`) while the page origin
+is `https://www.leafgon.com`, the API must satisfy CORS preflight and response
+headers:
+
+- `Access-Control-Allow-Origin: https://www.leafgon.com`
+- `Access-Control-Allow-Methods: POST, OPTIONS` (or include the used verb)
+- `Access-Control-Allow-Headers: content-type` (plus any custom headers)
+- `Access-Control-Allow-Credentials: true`
+
+If these headers are missing, browser runs can surface `elementio` output with
+`:_content null` even when direct `curl` calls succeed.
 
 For `href` specifically:
 
