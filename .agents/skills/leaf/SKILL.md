@@ -35,6 +35,7 @@ Run the environment survey before mutations when needed:
 - Read [references/leaflisp.md](references/leaflisp.md) before authoring or changing LEAFlisp.
 - Read [references/jsonld-workflow.md](references/jsonld-workflow.md) when JSON-LD is the offline storage format and conversion to executable transport DTO JSON is required.
 - Read [references/offline-validation.md](references/offline-validation.md) when validating task-pack contract DAG edges and acceptance vectors for offline authored graphs.
+- Read [references/runtime-dto-authoring-kit.md](references/runtime-dto-authoring-kit.md) when authoring executable runtime DTO graph fixtures and avoiding declarative-schema drift.
 - Re-check `data-workflows.md` and `leaflisp.md` for version-qualified runtime caveats (for example `leafspell("{*}")` dispatch contract, `leaflabel("?<name>")` URL parsing, and strict-boolean LEAFlisp `if` conditions).
 - Read [references/leafelements.md](references/leafelements.md) before choosing or configuring a `leafelement`, including `http` request/response bottle shape and browser CORS requirements.
 - Read [references/spa-pattern.md](references/spa-pattern.md) before authoring or changing a browser-rendered single-page application, including its HTML host contract, assets, navigation, or release strategy.
@@ -94,6 +95,25 @@ Run acceptance vectors for the same executable graph:
 node .agents/skills/leaf/scripts/run-acceptance-vectors.mjs \
   --graph path/to/graph.json \
   --vectors path/to/acceptance-vectors.json
+```
+
+Validate runtime DTO shape and run a smoke execution gate:
+
+```sh
+node .agents/skills/leaf/scripts/runtime-dto-kit.mjs \
+  --out path/to/graph.json \
+  --skip-smoke
+
+node .agents/skills/leaf/scripts/validate-runtime-dto.mjs \
+  --graph path/to/graph.json
+
+node .agents/skills/leaf/scripts/run-runtime-dto-smoke.mjs \
+  --graph path/to/graph.json \
+  --in1 11
+
+node .agents/skills/leaf/scripts/explain-runtime-error.mjs \
+  --stderr path/to/stderr.log \
+  --graph path/to/graph.json
 ```
 
 Never store LEAF graphs in a custom top-level `nodes` + `edges` schema under

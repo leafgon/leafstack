@@ -70,6 +70,21 @@ node .agents/skills/leaf/scripts/run-acceptance-vectors.mjs \
   --vectors path/to/acceptance-vectors.json
 ```
 
+Validate runtime DTO shape before DAG/acceptance checks:
+
+```sh
+node .agents/skills/leaf/scripts/validate-runtime-dto.mjs \
+  --graph path/to/graph.json
+```
+
+Run a fast smoke execution gate before full vectors:
+
+```sh
+node .agents/skills/leaf/scripts/run-runtime-dto-smoke.mjs \
+  --graph path/to/graph.json \
+  --in1 11
+```
+
 Use `--version` and/or `--ghostos-dir` when the task pins a runtime release.
 
 ## Inspection caveat

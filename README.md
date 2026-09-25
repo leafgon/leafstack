@@ -42,6 +42,34 @@ and expected skill files. On Windows, run it in Git Bash or WSL.
 Read `.agents/skills/leaf/SKILL.md` before asking an agent to change a graph.
 For direct Blob API work, also read `.agents/skills/leaf-blob-api/SKILL.md`.
 
+## Runtime DTO quick kit
+
+For executable local graph fixtures (especially benchmark workflows), use the
+runtime DTO scaffold/validate/smoke path:
+
+```bash
+node .agents/skills/leaf/scripts/runtime-dto-kit.mjs \
+  --out .agents/skills/leaf/references/examples/runtime-dto-http-arith.json \
+  --skip-smoke
+
+node .agents/skills/leaf/scripts/scaffold-runtime-dto.mjs \
+  --out .agents/skills/leaf/references/examples/runtime-dto-http-arith.json
+
+node .agents/skills/leaf/scripts/validate-runtime-dto.mjs \
+  --graph .agents/skills/leaf/references/examples/runtime-dto-http-arith.json
+
+node .agents/skills/leaf/scripts/run-runtime-dto-smoke.mjs \
+  --graph .agents/skills/leaf/references/examples/runtime-dto-http-arith.json \
+  --in1 11
+
+node .agents/skills/leaf/scripts/explain-runtime-error.mjs \
+  --stderr path/to/stderr.log \
+  --graph .agents/skills/leaf/references/examples/runtime-dto-http-arith.json
+```
+
+See `.agents/skills/leaf/references/runtime-dto-authoring-kit.md` for the full
+contract and troubleshooting.
+
 ## Create a least-privileged API token
 
 Leafgon API tokens are created by constructing this graph pattern in a
