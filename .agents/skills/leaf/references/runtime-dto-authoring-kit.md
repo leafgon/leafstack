@@ -76,6 +76,29 @@ node .agents/skills/leaf/scripts/run-runtime-dto-smoke.mjs \
 Use `--version` and `--ghostos-dir` exactly as in `run-leaf-graph.mjs` when a
 specific runtime release is required.
 
+## 4) Preflight output-shape gate (recommended)
+
+Use the preflight helper to run shape validation + smoke execution + output
+contract checks in one command:
+
+```sh
+node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
+  --graph .agents/skills/leaf/references/examples/runtime-dto-http-arith.json \
+  --in1 11 \
+  --out-key OUT1 \
+  --out-kind scalar
+```
+
+For vector outputs, require length explicitly:
+
+```sh
+node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
+  --graph path/to/graph.json \
+  --out-key OUT1 \
+  --out-kind vector \
+  --out-length 6
+```
+
 ## Common failure patterns
 
 - `The first argument must be of type string ... Received undefined` usually
@@ -101,6 +124,7 @@ For generated artifacts, require this order before submission:
 1. `scaffold-runtime-dto.mjs` (or equivalent DTO construction).
 2. `validate-runtime-dto.mjs` (shape gate).
 3. `run-runtime-dto-smoke.mjs` (execution gate).
+4. `preflight-runtime-dto.mjs` (combined readiness + output-shape gate).
 
 This keeps runtime fixture quality high without reverse-engineering bundled
 GhostOS internals.

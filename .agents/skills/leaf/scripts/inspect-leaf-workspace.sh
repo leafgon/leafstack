@@ -57,6 +57,7 @@ reference_files=(
   "${skill_dir}/scripts/validate-runtime-dto.mjs"
   "${skill_dir}/scripts/scaffold-runtime-dto.mjs"
   "${skill_dir}/scripts/runtime-dto-kit.mjs"
+  "${skill_dir}/scripts/preflight-runtime-dto.mjs"
   "${skill_dir}/scripts/explain-runtime-error.mjs"
   "${skill_dir}/scripts/run-runtime-dto-smoke.mjs"
   "${skill_dir}/scripts/run-acceptance-vectors.mjs"

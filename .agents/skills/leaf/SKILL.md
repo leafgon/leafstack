@@ -111,6 +111,12 @@ node .agents/skills/leaf/scripts/run-runtime-dto-smoke.mjs \
   --graph path/to/graph.json \
   --in1 11
 
+node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
+  --graph path/to/graph.json \
+  --in1 11 \
+  --out-key OUT1 \
+  --out-kind any
+
 node .agents/skills/leaf/scripts/explain-runtime-error.mjs \
   --stderr path/to/stderr.log \
   --graph path/to/graph.json
