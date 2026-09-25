@@ -51,6 +51,9 @@ Under this skill, transport DTO graph JSON is the only executable `.json`
 format. When additional metadata/context is needed, keep that data in `.jsonld`
 and compile it to transport DTO before execution.
 
+For scaffold-first runtime fixture work, use
+[runtime-dto-authoring-kit.md](runtime-dto-authoring-kit.md).
+
 ## Encoded payloads
 
 Node `data` decodes to JSON resembling:
@@ -326,6 +329,17 @@ node .agents/skills/leaf/scripts/run-leaf-graph.mjs \
   --graph graph.json \
   --refnode target-node-uuid \
   --input input.json
+```
+
+Add runtime DTO gates before larger benchmark or contract runs:
+
+```sh
+node .agents/skills/leaf/scripts/validate-runtime-dto.mjs \
+  --graph graph.json
+
+node .agents/skills/leaf/scripts/run-runtime-dto-smoke.mjs \
+  --graph graph.json \
+  --in1 11
 ```
 
 The harness resolves `ghostos@latest` by default, verifies the locally
