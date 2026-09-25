@@ -109,13 +109,16 @@ node .agents/skills/leaf/scripts/validate-runtime-dto.mjs \
 
 node .agents/skills/leaf/scripts/run-runtime-dto-smoke.mjs \
   --graph path/to/graph.json \
-  --in1 11
+  --in1 11 \
+  --quiet
 
 node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   --graph path/to/graph.json \
   --in1 11 \
   --out-key OUT1 \
-  --out-kind any
+  --out-kind any \
+  --quiet \
+  --log-file .tmp/leaf-preflight.log
 
 node .agents/skills/leaf/scripts/explain-runtime-error.mjs \
   --stderr path/to/stderr.log \

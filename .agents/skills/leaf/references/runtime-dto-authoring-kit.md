@@ -70,7 +70,8 @@ Validation checks include:
 ```sh
 node .agents/skills/leaf/scripts/run-runtime-dto-smoke.mjs \
   --graph .agents/skills/leaf/references/examples/runtime-dto-http-arith.json \
-  --in1 11
+  --in1 11 \
+  --quiet
 ```
 
 Use `--version` and `--ghostos-dir` exactly as in `run-leaf-graph.mjs` when a
@@ -86,7 +87,9 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   --graph .agents/skills/leaf/references/examples/runtime-dto-http-arith.json \
   --in1 11 \
   --out-key OUT1 \
-  --out-kind scalar
+  --out-kind scalar \
+  --quiet \
+  --log-file .tmp/leaf-preflight.log
 ```
 
 For vector outputs, require length explicitly:
@@ -96,7 +99,8 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   --graph path/to/graph.json \
   --out-key OUT1 \
   --out-kind vector \
-  --out-length 6
+  --out-length 6 \
+  --quiet
 ```
 
 ## Common failure patterns
