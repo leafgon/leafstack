@@ -6,7 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const skillDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const scriptPath = join(skillDirectory, "scripts", "run-runtime-dto-smoke.mjs");
+const scriptPath = join(skillDirectory, "scripts", "runtime-dto-fastlane.mjs");
 const ghostosLatest = JSON.parse(
   execFileSync("npm", ["view", "ghostos@latest", "version", "--json"], {
     encoding: "utf8",
@@ -34,8 +34,34 @@ const run = (args) =>
     child.on("close", (status) => resolveChild({ status, stdout, stderr }));
   });
 
-test("run-runtime-dto-smoke delegates to run-leaf-graph execution", async () => {
-  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".runtime-dto-smoke-test-"));
+const runtimeFixture = {
+  domain: "example",
+  appid: "fastlane-fixture",
+  nodes: [
+    {
+      uuid: "IN1",
+      leafnodetype: "leafinflowport",
+      data: encode({ leaf: { logic: { type: "leafinflowport", args: {} } } }),
+      out_edges: [
+        {
+          uuid: "E1",
+          source: { uuid: "IN1" },
+          target: { uuid: "OUT1" },
+          data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+        },
+      ],
+    },
+    {
+      uuid: "OUT1",
+      leafnodetype: "leafoutflowport",
+      data: encode({ leaf: { logic: { type: "leafoutflowport", args: {} } } }),
+      out_edges: [],
+    },
+  ],
+};
+
+test("runtime-dto-fastlane returns compact success summary", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".runtime-dto-fastlane-test-"));
   const fakeGhostosDirectory = join(temporaryDirectory, "ghostos");
   const graphPath = join(temporaryDirectory, "graph.json");
 
@@ -48,55 +74,35 @@ test("run-runtime-dto-smoke delegates to run-leaf-graph execution", async () => 
     );
     await writeFile(
       join(fakeGhostosDirectory, "src", "index.core.js"),
-      `export const executeLEAFGraph = async (_graph, input) => ({ OUT1: Number(input.IN1 ?? 0) + 2 });\n`,
+      `export const executeLEAFGraph = async (_graph, input) => ({ OUT1: Number(input.IN1 ?? 0) + 1 });\n`,
       "utf8",
     );
 
-    await writeFile(
-      graphPath,
-      `${JSON.stringify(
-        {
-          domain: "example",
-          appid: "runtime-smoke",
-          nodes: [
-            {
-              uuid: "IN1",
-              leafnodetype: "leafinflowport",
-              data: encode({ leaf: { logic: { type: "leafinflowport", args: {} } } }),
-              out_edges: [],
-            },
-          ],
-        },
-        null,
-        2,
-      )}\n`,
-      "utf8",
-    );
+    await writeFile(graphPath, `${JSON.stringify(runtimeFixture, null, 2)}\n`, "utf8");
 
     const result = await run([
       "--graph",
       graphPath,
-      "--in1",
-      "11",
       "--ghostos-dir",
       fakeGhostosDirectory,
       "--version",
       ghostosLatest,
+      "--quiet",
     ]);
 
     assert.equal(result.status, 0, result.stderr);
     const output = JSON.parse(result.stdout);
-    assert.equal(output.mode, "runtime-dto-smoke");
-    assert.equal(output.input.IN1, 11);
-    assert.equal(output.ghostosVersion, ghostosLatest);
-    assert.deepEqual(output.output, { OUT1: 13 });
+    assert.equal(output.mode, "runtime-dto-fastlane");
+    assert.equal(output.pass, true);
+    assert.equal(output.issueCount, 0);
+    assert.equal(output.preflight.steps?.smoke?.output?.OUT1, 12);
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }
 });
 
-test("run-runtime-dto-smoke emits compact JSON diagnostics on runtime failure", async () => {
-  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".runtime-dto-smoke-test-"));
+test("runtime-dto-fastlane returns diagnose summary on runtime failure", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".runtime-dto-fastlane-test-"));
   const fakeGhostosDirectory = join(temporaryDirectory, "ghostos");
   const graphPath = join(temporaryDirectory, "graph.json");
 
@@ -113,31 +119,25 @@ test("run-runtime-dto-smoke emits compact JSON diagnostics on runtime failure", 
       "utf8",
     );
 
-    await writeFile(
-      graphPath,
-      `${JSON.stringify({ domain: "example", appid: "runtime-smoke-fail", nodes: [] }, null, 2)}\n`,
-      "utf8",
-    );
+    await writeFile(graphPath, `${JSON.stringify(runtimeFixture, null, 2)}\n`, "utf8");
 
     const result = await run([
       "--graph",
       graphPath,
-      "--in1",
-      "11",
       "--ghostos-dir",
       fakeGhostosDirectory,
       "--version",
       ghostosLatest,
-      "--error-json",
       "--quiet",
     ]);
 
     assert.equal(result.status, 1, result.stderr);
-    const diagnostics = JSON.parse(result.stderr);
-    assert.equal(diagnostics.mode, "runtime-dto-smoke");
-    assert.equal(diagnostics.pass, false);
-    assert.equal(diagnostics.issueCode, "leaflisp_expected_hashmap_got_number");
-    assert.equal(diagnostics.refnode, "REQ_HTTP");
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.mode, "runtime-dto-fastlane");
+    assert.equal(output.pass, false);
+    assert.equal(output.preflight.diagnostics.refnode, "REQ_HTTP");
+    const issueCodes = output.preflight.diagnostics.issues.map((entry) => entry.code);
+    assert.ok(issueCodes.includes("leaflisp_expected_hashmap_got_number"));
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }

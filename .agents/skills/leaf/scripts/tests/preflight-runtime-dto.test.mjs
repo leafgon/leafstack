@@ -189,6 +189,10 @@ test("preflight-runtime-dto diagnose reports runtime classification when smoke e
     assert.equal(output.diagnostics.enabled, true);
     const issueCodes = output.diagnostics.issues.map((entry) => entry.code);
     assert.ok(issueCodes.includes("leaflisp_expected_vector_got_number"));
+    assert.equal(output.diagnostics.refnode, "REQ_SUB_9");
+    assert.equal(output.diagnostics.focus?.found, false);
+    assert.ok(Array.isArray(output.diagnostics.nextActions));
+    assert.ok(output.diagnostics.nextActions.length >= 1);
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }

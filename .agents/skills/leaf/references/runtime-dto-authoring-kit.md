@@ -33,6 +33,19 @@ node .agents/skills/leaf/scripts/runtime-dto-kit.mjs \
 Remove `--skip-smoke` to execute `run-runtime-dto-smoke.mjs` as part of the
 same command.
 
+For the fastest bounded validation + diagnostics loop on an authored graph,
+run the fastlane wrapper:
+
+```sh
+node .agents/skills/leaf/scripts/runtime-dto-fastlane.mjs \
+  --graph path/to/graph.json \
+  --in1 11 \
+  --out-key OUT1 \
+  --out-kind any \
+  --quiet \
+  --log-file .tmp/leaf-fastlane.log
+```
+
 ## 1) Scaffold a runtime DTO graph
 
 Create a minimal HTTP arithmetic graph:
@@ -140,9 +153,9 @@ node .agents/skills/leaf/scripts/decode-runtime-dto-payloads.mjs \
 
 To reduce churn and token-heavy spelunking, keep retries bounded:
 
-1. Run `preflight-runtime-dto.mjs --diagnose --quiet` once.
+1. Run `runtime-dto-fastlane.mjs` once.
 2. Apply the first concrete fix from `diagnostics.issues`.
-3. Re-run preflight once.
+3. Re-run fastlane once.
 4. Only if still failing, run one targeted decoder command for the failing node.
 
 Avoid broad `rg`/`sed` scans across the whole skill tree during smoke failures;
@@ -153,7 +166,7 @@ preflight diagnostics should be the first source of truth.
 For generated artifacts, require this order before submission:
 
 1. `scaffold-runtime-dto.mjs` (or equivalent DTO construction).
-2. `preflight-runtime-dto.mjs --diagnose --quiet` (shape + contract + execution gate).
+2. `runtime-dto-fastlane.mjs` (shape + contract + execution + diagnostics gate).
 3. If required, `decode-runtime-dto-payloads.mjs` on one failing node only.
 
 This keeps runtime fixture quality high without reverse-engineering bundled

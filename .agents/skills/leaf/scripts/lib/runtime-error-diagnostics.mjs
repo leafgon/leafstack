@@ -96,3 +96,39 @@ export const classifyRuntimeIssues = (text) => {
   return deduped;
 };
 
+export const extractRefnodeFromText = (text) => {
+  const input = String(text ?? "");
+  const patterns = [
+    /refnode:\s*([A-Za-z0-9_-]+)/i,
+    /"refnode"\s*:\s*"([A-Za-z0-9_-]+)"/i,
+    /\{refnode:\s*([A-Za-z0-9_-]+)\}/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = pattern.exec(input);
+    if (match && match[1]) return match[1];
+  }
+
+  return null;
+};
+
+const firstNonEmptyLine = (text) => String(text ?? "")
+  .split(/\r?\n/)
+  .map((line) => line.trim())
+  .find((line) => line.length > 0) ?? "";
+
+export const summarizeRuntimeFailure = ({ message = "", stderr = "", stdout = "" } = {}) => {
+  const combined = [stderr, stdout, message].filter((entry) => String(entry ?? "").length > 0).join("\n");
+  const issues = classifyRuntimeIssues(combined);
+  const primaryIssue = issues.find((issue) => issue.severity === "error") ?? issues[0] ?? null;
+  const refnode = extractRefnodeFromText(combined);
+  const fallbackMessage = firstNonEmptyLine(stderr) || firstNonEmptyLine(message) || "runtime execution failed";
+
+  return {
+    issues,
+    issueCode: primaryIssue?.code ?? "runtime_error",
+    message: primaryIssue?.meaning ?? fallbackMessage,
+    nextAction: primaryIssue?.action ?? "Run preflight-runtime-dto.mjs --diagnose and apply the first suggested fix.",
+    refnode,
+  };
+};

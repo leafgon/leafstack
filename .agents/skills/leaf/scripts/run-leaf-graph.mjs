@@ -5,9 +5,11 @@ import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { summarizeRuntimeFailure } from "./lib/runtime-error-diagnostics.mjs";
+
 const usage = () => {
   console.error(
-    "usage: run-leaf-graph.mjs --graph <graph.json> [--input <input.json>] [--refnode <node-uuid>] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-version-check] [--quiet] [--json-indent <n>] [--log-file <path>]",
+    "usage: run-leaf-graph.mjs --graph <graph.json> [--input <input.json>] [--refnode <node-uuid>] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-version-check] [--quiet] [--error-json] [--json-indent <n>] [--log-file <path>]",
   );
 };
 
@@ -32,6 +34,7 @@ const parseArgs = (argv) => {
   ]);
   const booleanFlags = new Set([
     "--quiet",
+    "--error-json",
     "--skip-version-check",
   ]);
 
@@ -67,6 +70,7 @@ const parseArgs = (argv) => {
     ghostosDir: options["ghostos-dir"] ? resolve(options["ghostos-dir"]) : null,
     skipVersionCheck: Boolean(options["skip-version-check"]),
     quiet: Boolean(options.quiet),
+    errorJson: Boolean(options["error-json"]),
     jsonIndent:
       typeof options["json-indent"] === "string"
         ? parseNonNegativeInteger(options["json-indent"], "--json-indent")
@@ -248,31 +252,59 @@ try {
     ),
   );
 } catch (error) {
+  const stderrText = typeof error?.stderr === "string" ? error.stderr : "";
+  const stdoutText = typeof error?.stdout === "string" ? error.stdout : "";
+  const summary = summarizeRuntimeFailure({
+    message: error?.message ?? String(error),
+    stderr: stderrText,
+    stdout: stdoutText,
+  });
+
   const details = [
     `[run-leaf-graph] ${new Date().toISOString()}`,
-    `message: ${error?.message ?? String(error)}`,
+    `message: ${summary.message}`,
+    `issueCode: ${summary.issueCode}`,
+    `refnode: ${summary.refnode ?? "n/a"}`,
   ];
 
   if (typeof error?.stack === "string" && error.stack.length > 0) {
     details.push(`stack:\n${error.stack}`);
   }
 
-  if (typeof error?.stderr === "string" && error.stderr.length > 0) {
-    details.push(`stderr:\n${error.stderr}`);
+  if (stderrText.length > 0) {
+    details.push(`stderr:\n${stderrText}`);
   }
 
-  if (typeof error?.stdout === "string" && error.stdout.length > 0) {
-    details.push(`stdout:\n${error.stdout}`);
+  if (stdoutText.length > 0) {
+    details.push(`stdout:\n${stdoutText}`);
   }
 
   await appendLog(options, `${details.join("\n\n")}\n`);
 
-  const stderrMaxChars = options.quiet ? 320 : 1200;
-  const stderrSnippet = truncateText(typeof error?.stderr === "string" ? error.stderr : "", stderrMaxChars);
-  if (stderrSnippet.length > 0) {
-    console.error(`error: ${error.message}\n${stderrSnippet}`);
+  const stderrMaxChars = options.quiet ? 220 : 800;
+  const stderrSnippet = truncateText(stderrText, stderrMaxChars);
+
+  const structured = {
+    mode: "run-leaf-graph",
+    pass: false,
+    graphPath: options.graph,
+    inputPath: options.input,
+    issueCode: summary.issueCode,
+    refnode: summary.refnode,
+    message: summary.message,
+    nextAction: summary.nextAction,
+    issues: summary.issues,
+    stderrSnippet,
+  };
+
+  if (options.errorJson || options.quiet) {
+    console.error(JSON.stringify(structured, null, options.quiet ? 0 : (options.jsonIndent ?? 2)));
   } else {
-    console.error(`error: ${error.message}`);
+    if (stderrSnippet.length > 0) {
+      console.error(`error: ${summary.message}\n${stderrSnippet}`);
+    } else {
+      console.error(`error: ${summary.message}`);
+    }
   }
   process.exit(1);
 }
