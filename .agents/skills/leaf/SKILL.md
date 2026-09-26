@@ -114,6 +114,14 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   --quiet \
   --log-file .tmp/leaf-preflight.log
 
+node .agents/skills/leaf/scripts/runtime-dto-fastlane.mjs \
+  --graph path/to/graph.json \
+  --in1 11 \
+  --out-key OUT1 \
+  --out-kind any \
+  --quiet \
+  --log-file .tmp/leaf-fastlane.log
+
 node .agents/skills/leaf/scripts/run-runtime-dto-smoke.mjs \
   --graph path/to/graph.json \
   --in1 11 \

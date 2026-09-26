@@ -149,3 +149,49 @@ test("run-leaf-graph quiet mode suppresses runtime console chatter", async () =>
     await rm(temporaryDirectory, { recursive: true, force: true });
   }
 });
+
+test("run-leaf-graph emits compact JSON diagnostics on runtime failure", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".run-leaf-graph-test-"));
+  const fakeGhostosDirectory = join(temporaryDirectory, "ghostos");
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  try {
+    await mkdir(join(fakeGhostosDirectory, "src"), { recursive: true });
+    await writeFile(
+      join(fakeGhostosDirectory, "package.json"),
+      `${JSON.stringify({ name: "ghostos", version: ghostosLatest, type: "module" }, null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(fakeGhostosDirectory, "src", "index.core.js"),
+      `export const executeLEAFGraph = async () => { throw new Error("LEAFlisp error: {refnode: REQ_DIV}: line: 0 - Type Error! Expected 'HashMap', but got 'Number'"); };\n`,
+      "utf8",
+    );
+
+    await writeFile(
+      graphPath,
+      `${JSON.stringify({ domain: "example", appid: "failure-fixture", nodes: [] }, null, 2)}\n`,
+      "utf8",
+    );
+
+    const result = await run([
+      "--graph",
+      graphPath,
+      "--ghostos-dir",
+      fakeGhostosDirectory,
+      "--version",
+      ghostosLatest,
+      "--error-json",
+      "--quiet",
+    ]);
+
+    assert.equal(result.status, 1, result.stderr);
+    const diagnostics = JSON.parse(result.stderr);
+    assert.equal(diagnostics.mode, "run-leaf-graph");
+    assert.equal(diagnostics.pass, false);
+    assert.equal(diagnostics.issueCode, "leaflisp_expected_hashmap_got_number");
+    assert.equal(diagnostics.refnode, "REQ_DIV");
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});

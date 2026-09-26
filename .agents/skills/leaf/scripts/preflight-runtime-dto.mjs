@@ -4,8 +4,8 @@ import { appendFile, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { extractGraph, lintRuntimeDtoHttpContracts } from "./lib/runtime-dto.mjs";
-import { classifyRuntimeIssues } from "./lib/runtime-error-diagnostics.mjs";
+import { extractGraph, inspectRuntimeDtoNodes, lintRuntimeDtoHttpContracts } from "./lib/runtime-dto.mjs";
+import { classifyRuntimeIssues, extractRefnodeFromText } from "./lib/runtime-error-diagnostics.mjs";
 
 const usage = () => {
   console.error(
@@ -182,6 +182,50 @@ const dedupeDiagnostics = (diagnostics) => {
   return results;
 };
 
+const parseEmbeddedJsonObject = (text) => {
+  const input = String(text ?? "").trim();
+  if (!input) return null;
+
+  const lines = input.split(/\r?\n/);
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index].trim();
+    if (!(line.startsWith("{") && line.endsWith("}"))) continue;
+    try {
+      return JSON.parse(line);
+    } catch {
+      continue;
+    }
+  }
+
+  try {
+    return JSON.parse(input);
+  } catch {
+    return null;
+  }
+};
+
+const buildFocusNodeDiagnostics = async (graphPath, refnode) => {
+  if (typeof refnode !== "string" || refnode.length === 0) return null;
+
+  const parsedGraph = JSON.parse(await readFile(graphPath, "utf8"));
+  const graph = extractGraph(parsedGraph);
+  const nodes = inspectRuntimeDtoNodes(graph);
+  const matched = nodes.find((entry) => entry.uuid === refnode) ?? null;
+  if (!matched) {
+    return { refnode, found: false };
+  }
+
+  return {
+    refnode,
+    found: true,
+    nodeIndex: matched.index,
+    leafnodetype: matched.leafnodetype,
+    logicType: matched.decoded?.leaf?.logic?.type ?? null,
+    logicArgsPreview: matched.decoded?.leaf?.logic?.args ?? null,
+    decodeError: matched.error,
+  };
+};
+
 let options;
 try {
   options = parseArgs(process.argv.slice(2));
@@ -203,6 +247,7 @@ try {
   let staticContract = null;
   let smoke = null;
   let smokeError = null;
+  let embeddedSmokeError = null;
 
   const validationRun = await runScriptJson(validateScript, ["--graph", options.graph], options);
   const validation = validationRun.ok ? validationRun.payload : null;
@@ -234,6 +279,7 @@ try {
     if (options.ghostosDir) smokeArgs.push("--ghostos-dir", options.ghostosDir);
     if (options.skipVersionCheck) smokeArgs.push("--skip-version-check");
     if (options.quiet) smokeArgs.push("--quiet");
+    if (options.diagnose || options.quiet) smokeArgs.push("--error-json");
     if (Number.isInteger(options.jsonIndent)) {
       smokeArgs.push("--json-indent", String(options.jsonIndent));
     }
@@ -273,6 +319,20 @@ try {
           smokeRun.error?.stdout,
         ),
       );
+
+      embeddedSmokeError = parseEmbeddedJsonObject(smokeRun.error?.stderr) ?? parseEmbeddedJsonObject(smokeRun.error?.stdout);
+      if (embeddedSmokeError) {
+        if (Array.isArray(embeddedSmokeError.issues) && embeddedSmokeError.issues.length > 0) {
+          diagnostics.push(...embeddedSmokeError.issues);
+        } else if (typeof embeddedSmokeError.issueCode === "string" && embeddedSmokeError.issueCode.length > 0) {
+          diagnostics.push({
+            code: embeddedSmokeError.issueCode,
+            severity: "error",
+            meaning: embeddedSmokeError.message ?? "runtime execution failed",
+            action: embeddedSmokeError.nextAction ?? "Run preflight-runtime-dto.mjs --diagnose and apply the first suggested fix.",
+          });
+        }
+      }
     }
   }
 
@@ -305,13 +365,29 @@ try {
       message: smokeError.message,
       stderr: truncateText(smokeError.stderr),
     };
+
+    if (embeddedSmokeError) {
+      output.steps.smokeError.embedded = embeddedSmokeError;
+    }
   }
 
   if (options.diagnose) {
+    const refnode = extractRefnodeFromText([
+      smokeError?.stderr,
+      smokeError?.stdout,
+      smokeError?.message,
+      output?.steps?.smokeError?.embedded?.refnode,
+    ].filter(Boolean).join("\n"));
+
+    const focus = await buildFocusNodeDiagnostics(options.graph, refnode);
+    const issueList = dedupeDiagnostics(diagnostics);
     output.diagnostics = {
       enabled: true,
-      issueCount: dedupeDiagnostics(diagnostics).length,
-      issues: dedupeDiagnostics(diagnostics),
+      issueCount: issueList.length,
+      issues: issueList,
+      refnode,
+      focus,
+      nextActions: issueList.map((issue) => issue.action).filter(Boolean).slice(0, 3),
     };
   }
 
