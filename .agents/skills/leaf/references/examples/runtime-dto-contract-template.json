@@ -1,0 +1,154 @@
+{
+  "domain": "example",
+  "appid": "runtime-dto-contract-template",
+  "nodes": [
+    {
+      "uuid": "IN1",
+      "leafnodetype": "leafinflowport",
+      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmaW5mbG93cG9ydCIsImFyZ3MiOnt9fSwiYXBwZGF0YSI6eyJwb3NpdGlvbiI6eyJ4Ijo4MCwieSI6MTIwfX19fQ==",
+      "out_edges": [
+        {
+          "uuid": "E01_IN1_TO_REQ",
+          "source": {
+            "uuid": "IN1"
+          },
+          "target": {
+            "uuid": "REQ_HTTP"
+          },
+          "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmZGF0YWVkZ2UifSwiYXBwZGF0YSI6eyJzb3VyY2VIYW5kbGUiOiJvdXRfYSIsInRhcmdldEhhbmRsZSI6ImluX2EifX19"
+        }
+      ]
+    },
+    {
+      "uuid": "REQ_HTTP",
+      "leafnodetype": "leaflisp",
+      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmbGlzcCIsImFyZ3MiOnsibGlzcGV4cHJlc3Npb24iOiIoZG8gKGRlZiByZXEgezp1cmkgXCJodHRwOi8vMTI3LjAuMC4xOjgwODAvdjEvb3BlcmF0aW9uc1wiIDptb2RlIFwicG9zdFwiIDpoZWFkZXIgezpjb250ZW50LXR5cGUgXCJhcHBsaWNhdGlvbi9qc29uXCJ9IDpkYXRhIHs6cHJvZmlsZSBcInByb2ZpbGUtMDAxXCIgOm9wZXJhdGlvbklkIFwib3AtMDFcIiA6b3BlcmF0aW9uIFwiYWRkXCIgOm9wZXJhbmRzIFtpbnBvcnQgMl19fSkgKGJvdHRsZSBcImh0dHAtcmVxdWVzdFwiIHJlcSkpIn19LCJhcHBkYXRhIjp7InBvc2l0aW9uIjp7IngiOjI4MCwieSI6MTIwfX19fQ==",
+      "out_edges": [
+        {
+          "uuid": "E02_REQ_TO_HTTP",
+          "source": {
+            "uuid": "REQ_HTTP"
+          },
+          "target": {
+            "uuid": "HTTP_NODE"
+          },
+          "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmZGF0YWVkZ2UifSwiYXBwZGF0YSI6eyJzb3VyY2VIYW5kbGUiOiJvdXRfYSIsInRhcmdldEhhbmRsZSI6ImluX2EifX19"
+        }
+      ]
+    },
+    {
+      "uuid": "HTTP_NODE",
+      "leafnodetype": "leafelement",
+      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmZWxlbWVudCIsImFyZ3MiOnsiZWxlbWVudG5hbWUiOiJodHRwIiwic3ZnaWNvbiI6eyJ1bmljb2RlIjpudWxsLCJ1cmwiOiIiLCJqc3giOm51bGx9LCJlbGVtZW50Y29uZmlnIjoiIn19LCJhcHBkYXRhIjp7InBvc2l0aW9uIjp7IngiOjUwMCwieSI6MTIwfX19fQ==",
+      "out_edges": [
+        {
+          "uuid": "E03_HTTP_TO_GATE",
+          "source": {
+            "uuid": "HTTP_NODE"
+          },
+          "target": {
+            "uuid": "GATE_ELEMENTIO"
+          },
+          "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmZGF0YWVkZ2UifSwiYXBwZGF0YSI6eyJzb3VyY2VIYW5kbGUiOiJvdXRfYSIsInRhcmdldEhhbmRsZSI6ImluX2EifX19"
+        }
+      ]
+    },
+    {
+      "uuid": "GATE_ELEMENTIO",
+      "leafnodetype": "leafgateflow",
+      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmZ2F0ZWZsb3ciLCJhcmdzIjp7ImtleW5hbWUiOiJlbGVtZW50aW8iLCJub3RnYXRldG9nZ2xlIjpmYWxzZX19LCJhcHBkYXRhIjp7InBvc2l0aW9uIjp7IngiOjcyMCwieSI6MTIwfX19fQ==",
+      "out_edges": [
+        {
+          "uuid": "E04_GATE_TO_PARSE",
+          "source": {
+            "uuid": "GATE_ELEMENTIO"
+          },
+          "target": {
+            "uuid": "PARSE_HTTP"
+          },
+          "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmZGF0YWVkZ2UifSwiYXBwZGF0YSI6eyJzb3VyY2VIYW5kbGUiOiJvdXRfYSIsInRhcmdldEhhbmRsZSI6ImluX2EifX19"
+        }
+      ]
+    },
+    {
+      "uuid": "PARSE_HTTP",
+      "leafnodetype": "leaflisp",
+      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmbGlzcCIsImFyZ3MiOnsibGlzcGV4cHJlc3Npb24iOiIoZG8gKGRlZiBwYXlsb2FkIChpZiAoaXNib3R0bGUgaW5wb3J0KSAoZ2V0IGlucG9ydCA6X2NvbnRlbnQpIGlucG9ydCkpIChnZXQgcGF5bG9hZCA6cmVzdWx0KSkifX0sImFwcGRhdGEiOnsicG9zaXRpb24iOnsieCI6OTQwLCJ5IjoxMjB9fX19",
+      "out_edges": [
+        {
+          "uuid": "E05_PARSE_TO_JOIN",
+          "source": {
+            "uuid": "PARSE_HTTP"
+          },
+          "target": {
+            "uuid": "JOIN"
+          },
+          "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmZGF0YWVkZ2UifSwiYXBwZGF0YSI6eyJzb3VyY2VIYW5kbGUiOiJvdXRfYSIsInRhcmdldEhhbmRsZSI6ImluX2EifX19"
+        }
+      ]
+    },
+    {
+      "uuid": "CHRONOS",
+      "leafnodetype": "leafchronosflow",
+      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmY2hyb25vc2Zsb3ciLCJhcmdzIjp7fX0sImFwcGRhdGEiOnsicG9zaXRpb24iOnsieCI6OTQwLCJ5IjoyNjB9fX19",
+      "out_edges": [
+        {
+          "uuid": "E06_CHRONOS_TO_JOIN",
+          "source": {
+            "uuid": "CHRONOS"
+          },
+          "target": {
+            "uuid": "JOIN"
+          },
+          "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmZGF0YWVkZ2UifSwiYXBwZGF0YSI6eyJzb3VyY2VIYW5kbGUiOiJvdXRfYSIsInRhcmdldEhhbmRsZSI6ImluX2EifX19"
+        }
+      ]
+    },
+    {
+      "uuid": "JOIN",
+      "leafnodetype": "leafmixflow",
+      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmbWl4ZmxvdyIsImFyZ3MiOnsibWl4T3BlcmF0b3IiOiJkaWN0aW9uYXJ5In19LCJhcHBkYXRhIjp7InBvc2l0aW9uIjp7IngiOjExNjAsInkiOjE2MH19fX0=",
+      "out_edges": [
+        {
+          "uuid": "E07_JOIN_TO_OUT1",
+          "source": {
+            "uuid": "JOIN"
+          },
+          "target": {
+            "uuid": "OUT1"
+          },
+          "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmZGF0YWVkZ2UifSwiYXBwZGF0YSI6eyJzb3VyY2VIYW5kbGUiOiJvdXRfYSIsInRhcmdldEhhbmRsZSI6ImluX2EifX19"
+        }
+      ]
+    },
+    {
+      "uuid": "SPELL_CALL",
+      "leafnodetype": "leafspell",
+      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmc3BlbGwiLCJhcmdzIjp7InNwZWxsbmFtZSI6InBhc3N0aHJvdWdoLXNwZWxsIn19LCJhcHBkYXRhIjp7InBvc2l0aW9uIjp7IngiOjEzODAsInkiOjEyMH19fX0=",
+      "out_edges": [
+        {
+          "uuid": "E08_SPELL_TO_DEF",
+          "source": {
+            "uuid": "SPELL_CALL"
+          },
+          "target": {
+            "uuid": "SPELL_DEF"
+          },
+          "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmbGFtYmRhZWRnZSJ9fX0="
+        }
+      ]
+    },
+    {
+      "uuid": "SPELL_DEF",
+      "leafnodetype": "leafspelldef",
+      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmc3BlbGxkZWYiLCJhcmdzIjp7InNwZWxsbmFtZSI6InBhc3N0aHJvdWdoLXNwZWxsIiwic3ZnaWNvbiI6eyJ1cmwiOiIifX19LCJhcHBkYXRhIjp7InBvc2l0aW9uIjp7IngiOjExNjAsInkiOjM0MH19fX0=",
+      "out_edges": []
+    },
+    {
+      "uuid": "OUT1",
+      "leafnodetype": "leafoutflowport",
+      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmb3V0Zmxvd3BvcnQiLCJhcmdzIjp7fX0sImFwcGRhdGEiOnsicG9zaXRpb24iOnsieCI6MTYwMCwieSI6MTIwfX19fQ==",
+      "out_edges": []
+    }
+  ]
+}

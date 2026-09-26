@@ -36,6 +36,7 @@ Run the environment survey before mutations when needed:
 - Read [references/jsonld-workflow.md](references/jsonld-workflow.md) when JSON-LD is the offline storage format and conversion to executable transport DTO JSON is required.
 - Read [references/offline-validation.md](references/offline-validation.md) when validating task-pack contract DAG edges and acceptance vectors for offline authored graphs.
 - Read [references/runtime-dto-authoring-kit.md](references/runtime-dto-authoring-kit.md) when authoring executable runtime DTO graph fixtures and avoiding declarative-schema drift.
+- Read [references/runtime-dto-payload-contracts.md](references/runtime-dto-payload-contracts.md) for general runtime DTO payload contracts, including decoded base64 node/edge shapes and the reusable JSON template.
 - Re-check `data-workflows.md` and `leaflisp.md` for version-qualified runtime caveats (for example `leafspell("{*}")` dispatch contract, `leaflabel("?<name>")` URL parsing, and strict-boolean LEAFlisp `if` conditions).
 - Read [references/leafelements.md](references/leafelements.md) before choosing or configuring a `leafelement`, including `http` request/response bottle shape and browser CORS requirements.
 - Read [references/spa-pattern.md](references/spa-pattern.md) before authoring or changing a browser-rendered single-page application, including its HTML host contract, assets, navigation, or release strategy.
@@ -184,6 +185,17 @@ Inspect a graph fixture without executing it:
 
 ```sh
 node .agents/skills/leaf/scripts/inspect-leaf-graph.mjs path/to/graph.json
+```
+
+Decode runtime DTO payloads for selected nodes/edges:
+
+```sh
+node .agents/skills/leaf/scripts/decode-runtime-dto-payloads.mjs \
+  --graph path/to/graph.json \
+  --node REQ_HTTP \
+  --edge E02_REQ_TO_HTTP \
+  --redact \
+  --json
 ```
 
 Capture a publicly browsable graph from the deployed Leafgon editor:
