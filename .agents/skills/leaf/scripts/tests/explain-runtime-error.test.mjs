@@ -40,6 +40,18 @@ test("explain-runtime-error detects known issue signatures from text", async () 
   assert.deepEqual(codes, ["models_manager_decode_warning", "operation_id_not_found"]);
 });
 
+test("explain-runtime-error classifies common leaflisp shape mismatch errors", async () => {
+  const result = await run([
+    "--text",
+    "LEAFlisp error: {refnode: REQ_SUB_9}: line: 0 - Type Error! Expected 'Vector', but got 'Number'",
+  ]);
+
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  const issueCodes = output.issues.map((entry) => entry.code);
+  assert.ok(issueCodes.includes("leaflisp_expected_vector_got_number"));
+});
+
 test("explain-runtime-error adds graph diagnostics for malformed runtime DTO", async () => {
   const temporaryDirectory = await mkdtemp(join(skillDirectory, ".explain-runtime-error-test-"));
   const stderrPath = join(temporaryDirectory, "stderr.log");
