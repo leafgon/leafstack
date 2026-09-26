@@ -105,6 +105,31 @@ const appendLog = async (options, content) => {
   await appendFile(options.logFile, `${content.endsWith("\n") ? content : `${content}\n`}`, "utf8");
 };
 
+const silenceRuntimeConsole = () => {
+  const original = {
+    log: console.log,
+    info: console.info,
+    warn: console.warn,
+    error: console.error,
+    debug: console.debug,
+  };
+
+  const noop = () => {};
+  console.log = noop;
+  console.info = noop;
+  console.warn = noop;
+  console.error = noop;
+  console.debug = noop;
+
+  return () => {
+    console.log = original.log;
+    console.info = original.info;
+    console.warn = original.warn;
+    console.error = original.error;
+    console.debug = original.debug;
+  };
+};
+
 let options;
 try {
   options = parseArgs(process.argv.slice(2));
@@ -197,7 +222,17 @@ try {
     runtimeOptions.refnode = options.refnode;
   }
 
-  const output = await executeLEAFGraph(graph, input, runtimeOptions);
+  let output;
+  if (options.quiet) {
+    const restoreConsole = silenceRuntimeConsole();
+    try {
+      output = await executeLEAFGraph(graph, input, runtimeOptions);
+    } finally {
+      restoreConsole();
+    }
+  } else {
+    output = await executeLEAFGraph(graph, input, runtimeOptions);
+  }
 
   console.log(
     formatJson(
@@ -232,7 +267,8 @@ try {
 
   await appendLog(options, `${details.join("\n\n")}\n`);
 
-  const stderrSnippet = truncateText(typeof error?.stderr === "string" ? error.stderr : "");
+  const stderrMaxChars = options.quiet ? 320 : 1200;
+  const stderrSnippet = truncateText(typeof error?.stderr === "string" ? error.stderr : "", stderrMaxChars);
   if (stderrSnippet.length > 0) {
     console.error(`error: ${error.message}\n${stderrSnippet}`);
   } else {

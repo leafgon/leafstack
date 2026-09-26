@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { appendFile } from "node:fs/promises";
+import { appendFile, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { extractGraph, lintRuntimeDtoHttpContracts } from "./lib/runtime-dto.mjs";
+import { classifyRuntimeIssues } from "./lib/runtime-error-diagnostics.mjs";
+
 const usage = () => {
   console.error(
-    "usage: preflight-runtime-dto.mjs --graph <graph.json> [--in1 <number>] [--out-key <key>] [--out-kind any|scalar|vector] [--out-length <n>] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-version-check] [--quiet] [--json-indent <n>] [--log-file <path>]",
+    "usage: preflight-runtime-dto.mjs --graph <graph.json> [--in1 <number>] [--out-key <key>] [--out-kind any|scalar|vector] [--out-length <n>] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-version-check] [--diagnose] [--quiet] [--json-indent <n>] [--log-file <path>]",
   );
 };
 
@@ -34,6 +37,7 @@ const parseArgs = (argv) => {
   const booleanFlags = new Set([
     "--quiet",
     "--skip-version-check",
+    "--diagnose",
   ]);
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -80,6 +84,7 @@ const parseArgs = (argv) => {
     version: options.version,
     ghostosDir: options["ghostos-dir"] ? resolve(options["ghostos-dir"]) : null,
     skipVersionCheck: Boolean(options["skip-version-check"]),
+    diagnose: Boolean(options.diagnose),
     quiet: Boolean(options.quiet),
     jsonIndent:
       typeof options["json-indent"] === "string"
@@ -118,8 +123,14 @@ const runScriptJson = async (scriptPath, args, options) => {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
-    return JSON.parse(output);
+    return {
+      ok: true,
+      payload: JSON.parse(output),
+      error: null,
+    };
   } catch (error) {
+    const stderrText = typeof error?.stderr === "string" ? error.stderr : "";
+    const stdoutText = typeof error?.stdout === "string" ? error.stdout : "";
     const details = [
       `[preflight-runtime-dto] child failure at ${new Date().toISOString()}`,
       `script: ${scriptPath}`,
@@ -127,23 +138,48 @@ const runScriptJson = async (scriptPath, args, options) => {
       `message: ${error?.message ?? String(error)}`,
     ];
 
-    if (typeof error?.stderr === "string" && error.stderr.length > 0) {
-      details.push(`stderr:\n${error.stderr}`);
+    if (stderrText.length > 0) {
+      details.push(`stderr:\n${stderrText}`);
     }
 
-    if (typeof error?.stdout === "string" && error.stdout.length > 0) {
-      details.push(`stdout:\n${error.stdout}`);
+    if (stdoutText.length > 0) {
+      details.push(`stdout:\n${stdoutText}`);
     }
 
     await appendLog(options, `${details.join("\n\n")}\n`);
 
-    const stderrSnippet = truncateText(typeof error?.stderr === "string" ? error.stderr : "");
-    if (stderrSnippet.length > 0) {
-      throw new Error(`child command failed: ${scriptPath}\n${stderrSnippet}`);
-    }
-
-    throw new Error(`child command failed: ${scriptPath}: ${error?.message ?? String(error)}`);
+    return {
+      ok: false,
+      payload: null,
+      error: {
+        script: scriptPath,
+        args,
+        message: error?.message ?? String(error),
+        stderr: stderrText,
+        stdout: stdoutText,
+      },
+    };
   }
+};
+
+const collectDiagnostics = (options, ...texts) => {
+  if (!options.diagnose) return [];
+  const aggregated = texts
+    .filter((entry) => typeof entry === "string" && entry.length > 0)
+    .join("\n");
+  return classifyRuntimeIssues(aggregated);
+};
+
+const dedupeDiagnostics = (diagnostics) => {
+  const results = [];
+  const seen = new Set();
+  for (const entry of diagnostics) {
+    if (!entry || typeof entry.code !== "string") continue;
+    if (seen.has(entry.code)) continue;
+    seen.add(entry.code);
+    results.push(entry);
+  }
+  return results;
 };
 
 let options;
@@ -160,14 +196,39 @@ const validateScript = resolve(scriptsRoot, "validate-runtime-dto.mjs");
 const smokeScript = resolve(scriptsRoot, "run-runtime-dto-smoke.mjs");
 
 try {
-  const validation = await runScriptJson(validateScript, ["--graph", options.graph], options);
-
-  let smoke = null;
+  const diagnostics = [];
   const checks = [];
   let observedOutKind = null;
   let observedOutLength = null;
+  let staticContract = null;
+  let smoke = null;
+  let smokeError = null;
 
-  if (validation.pass) {
+  const validationRun = await runScriptJson(validateScript, ["--graph", options.graph], options);
+  const validation = validationRun.ok ? validationRun.payload : null;
+
+  if (!validationRun.ok) {
+    checks.push("validation-runner-failed");
+    diagnostics.push(
+      ...collectDiagnostics(
+        options,
+        validationRun.error?.message,
+        validationRun.error?.stderr,
+        validationRun.error?.stdout,
+      ),
+    );
+  }
+
+  if (validation?.pass) {
+    const parsedGraph = JSON.parse(await readFile(options.graph, "utf8"));
+    const graph = extractGraph(parsedGraph);
+    staticContract = lintRuntimeDtoHttpContracts(graph, { outKey: options.outKey });
+    for (const issue of staticContract.issues) {
+      checks.push(`static-contract:${issue.code}`);
+    }
+  }
+
+  if (validation?.pass && checks.length === 0) {
     const smokeArgs = ["--graph", options.graph, "--in1", String(options.in1)];
     if (options.version) smokeArgs.push("--version", options.version);
     if (options.ghostosDir) smokeArgs.push("--ghostos-dir", options.ghostosDir);
@@ -178,30 +239,44 @@ try {
     }
     if (options.logFile) smokeArgs.push("--log-file", options.logFile);
 
-    smoke = await runScriptJson(smokeScript, smokeArgs, options);
+    const smokeRun = await runScriptJson(smokeScript, smokeArgs, options);
+    if (smokeRun.ok) {
+      smoke = smokeRun.payload;
 
-    const outValue = smoke?.output?.[options.outKey];
-    observedOutKind = classifyOutValue(outValue);
-    observedOutLength = Array.isArray(outValue) ? outValue.length : null;
+      const outValue = smoke?.output?.[options.outKey];
+      observedOutKind = classifyOutValue(outValue);
+      observedOutLength = Array.isArray(outValue) ? outValue.length : null;
 
-    if (!(options.outKey in (smoke?.output ?? {}))) {
-      checks.push(`missing-output-key:${options.outKey}`);
-    }
-
-    if (options.outKind !== "any" && observedOutKind !== options.outKind) {
-      checks.push(`output-kind-mismatch:expected-${options.outKind}:actual-${observedOutKind}`);
-    }
-
-    if (Number.isInteger(options.outLength)) {
-      if (!Array.isArray(outValue)) {
-        checks.push(`output-length-check-requires-vector:${options.outKey}`);
-      } else if (outValue.length !== options.outLength) {
-        checks.push(`output-length-mismatch:expected-${options.outLength}:actual-${outValue.length}`);
+      if (!(options.outKey in (smoke?.output ?? {}))) {
+        checks.push(`missing-output-key:${options.outKey}`);
       }
+
+      if (options.outKind !== "any" && observedOutKind !== options.outKind) {
+        checks.push(`output-kind-mismatch:expected-${options.outKind}:actual-${observedOutKind}`);
+      }
+
+      if (Number.isInteger(options.outLength)) {
+        if (!Array.isArray(outValue)) {
+          checks.push(`output-length-check-requires-vector:${options.outKey}`);
+        } else if (outValue.length !== options.outLength) {
+          checks.push(`output-length-mismatch:expected-${options.outLength}:actual-${outValue.length}`);
+        }
+      }
+    } else {
+      smokeError = smokeRun.error;
+      checks.push("smoke-execution-failed");
+      diagnostics.push(
+        ...collectDiagnostics(
+          options,
+          smokeRun.error?.message,
+          smokeRun.error?.stderr,
+          smokeRun.error?.stdout,
+        ),
+      );
     }
   }
 
-  const pass = Boolean(validation.pass) && checks.length === 0;
+  const pass = Boolean(validation?.pass) && checks.length === 0;
 
   const output = {
     mode: "preflight-runtime-dto",
@@ -219,6 +294,26 @@ try {
       smoke,
     },
   };
+
+  if (staticContract) {
+    output.staticContract = staticContract;
+  }
+
+  if (smokeError) {
+    output.steps.smokeError = {
+      script: smokeError.script,
+      message: smokeError.message,
+      stderr: truncateText(smokeError.stderr),
+    };
+  }
+
+  if (options.diagnose) {
+    output.diagnostics = {
+      enabled: true,
+      issueCount: dedupeDiagnostics(diagnostics).length,
+      issues: dedupeDiagnostics(diagnostics),
+    };
+  }
 
   console.log(formatJson(output, options));
   if (!pass) process.exitCode = 1;

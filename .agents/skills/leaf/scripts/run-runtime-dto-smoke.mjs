@@ -158,7 +158,8 @@ try {
 
   await appendLog(options, `${details.join("\n\n")}\n`);
 
-  const stderrSnippet = truncateText(typeof error?.stderr === "string" ? error.stderr : "");
+  const stderrMaxChars = options.quiet ? 320 : 1200;
+  const stderrSnippet = truncateText(typeof error?.stderr === "string" ? error.stderr : "", stderrMaxChars);
   if (stderrSnippet.length > 0) {
     console.error(`error: ${error.message}\n${stderrSnippet}`);
   } else {

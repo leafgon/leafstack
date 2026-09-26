@@ -98,28 +98,26 @@ node .agents/skills/leaf/scripts/run-acceptance-vectors.mjs \
   --vectors path/to/acceptance-vectors.json
 ```
 
-Validate runtime DTO shape and run a smoke execution gate:
+Validate runtime DTO shape and run one bounded preflight gate:
 
 ```sh
 node .agents/skills/leaf/scripts/runtime-dto-kit.mjs \
   --out path/to/graph.json \
   --skip-smoke
 
-node .agents/skills/leaf/scripts/validate-runtime-dto.mjs \
-  --graph path/to/graph.json
-
-node .agents/skills/leaf/scripts/run-runtime-dto-smoke.mjs \
-  --graph path/to/graph.json \
-  --in1 11 \
-  --quiet
-
 node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   --graph path/to/graph.json \
   --in1 11 \
   --out-key OUT1 \
   --out-kind any \
+  --diagnose \
   --quiet \
   --log-file .tmp/leaf-preflight.log
+
+node .agents/skills/leaf/scripts/run-runtime-dto-smoke.mjs \
+  --graph path/to/graph.json \
+  --in1 11 \
+  --quiet
 
 node .agents/skills/leaf/scripts/explain-runtime-error.mjs \
   --stderr path/to/stderr.log \

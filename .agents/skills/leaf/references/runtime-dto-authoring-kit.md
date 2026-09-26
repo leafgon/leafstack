@@ -91,6 +91,7 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   --in1 11 \
   --out-key OUT1 \
   --out-kind scalar \
+  --diagnose \
   --quiet \
   --log-file .tmp/leaf-preflight.log
 ```
@@ -103,6 +104,7 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   --out-key OUT1 \
   --out-kind vector \
   --out-length 6 \
+  --diagnose \
   --quiet
 ```
 
@@ -134,14 +136,25 @@ node .agents/skills/leaf/scripts/decode-runtime-dto-payloads.mjs \
   --json
 ```
 
+## Token-disciplined debug loop (recommended)
+
+To reduce churn and token-heavy spelunking, keep retries bounded:
+
+1. Run `preflight-runtime-dto.mjs --diagnose --quiet` once.
+2. Apply the first concrete fix from `diagnostics.issues`.
+3. Re-run preflight once.
+4. Only if still failing, run one targeted decoder command for the failing node.
+
+Avoid broad `rg`/`sed` scans across the whole skill tree during smoke failures;
+preflight diagnostics should be the first source of truth.
+
 ## Recommended benchmark workflow
 
 For generated artifacts, require this order before submission:
 
 1. `scaffold-runtime-dto.mjs` (or equivalent DTO construction).
-2. `validate-runtime-dto.mjs` (shape gate).
-3. `run-runtime-dto-smoke.mjs` (execution gate).
-4. `preflight-runtime-dto.mjs` (combined readiness + output-shape gate).
+2. `preflight-runtime-dto.mjs --diagnose --quiet` (shape + contract + execution gate).
+3. If required, `decode-runtime-dto-payloads.mjs` on one failing node only.
 
 This keeps runtime fixture quality high without reverse-engineering bundled
 GhostOS internals.

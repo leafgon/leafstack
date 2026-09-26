@@ -215,3 +215,200 @@ export const inspectRuntimeDtoNodes = (graph) => {
 
   return entries;
 };
+
+const getNodeLogic = (node, index) => {
+  const decoded = decodeBase64Json(node?.data, `nodes[${index}].data`);
+  const logic = decoded?.leaf?.logic;
+  if (!logic || typeof logic !== "object") {
+    throw new Error(`nodes[${index}].data must include leaf.logic object`);
+  }
+  return logic;
+};
+
+export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
+  const outKey = typeof options.outKey === "string" && options.outKey.length > 0 ? options.outKey : "OUT1";
+  const issues = [];
+  const warnings = [];
+  const facts = {
+    outKey,
+    nodeCount: 0,
+    httpNodeCount: 0,
+  };
+
+  if (!graph || typeof graph !== "object" || !Array.isArray(graph.nodes)) {
+    return {
+      pass: false,
+      issues: [
+        {
+          code: "graph-nodes-missing",
+          message: "graph.nodes must be an array for HTTP contract linting",
+        },
+      ],
+      warnings,
+      facts,
+    };
+  }
+
+  facts.nodeCount = graph.nodes.length;
+
+  const nodeByUuid = new Map();
+  const nodeMetaByUuid = new Map();
+  const incomingByTarget = new Map();
+
+  for (const [index, node] of graph.nodes.entries()) {
+    if (!node || typeof node !== "object") continue;
+    const uuid = typeof node.uuid === "string" ? node.uuid : null;
+    if (!uuid) continue;
+
+    nodeByUuid.set(uuid, node);
+
+    let logic = null;
+    let decodeError = null;
+    try {
+      logic = getNodeLogic(node, index);
+    } catch (error) {
+      decodeError = error.message;
+    }
+
+    nodeMetaByUuid.set(uuid, {
+      index,
+      leafnodetype: typeof node.leafnodetype === "string" ? node.leafnodetype : null,
+      logic,
+      decodeError,
+    });
+
+    for (const edge of Array.isArray(node.out_edges) ? node.out_edges : []) {
+      const targetUuid = edge?.target?.uuid;
+      if (typeof targetUuid !== "string" || targetUuid.length === 0) continue;
+      const entries = incomingByTarget.get(targetUuid) ?? [];
+      entries.push({ sourceUuid: uuid, edgeUuid: edge?.uuid ?? null });
+      incomingByTarget.set(targetUuid, entries);
+    }
+  }
+
+  const outNode = nodeByUuid.get(outKey);
+  if (!outNode) {
+    issues.push({
+      code: "missing-outflow-node",
+      message: `outflow node '${outKey}' is not present in graph.nodes`,
+    });
+  } else if (outNode.leafnodetype !== "leafoutflowport") {
+    issues.push({
+      code: "outflow-node-type-mismatch",
+      message: `node '${outKey}' must use leafoutflowport (found '${outNode.leafnodetype ?? "unknown"}')`,
+    });
+  }
+
+  for (const [uuid, meta] of nodeMetaByUuid.entries()) {
+    const logicType = meta.logic?.type;
+    const elementName = meta.logic?.args?.elementname;
+    if (meta.leafnodetype !== "leafelement" || logicType !== "leafelement" || elementName !== "http") {
+      continue;
+    }
+
+    facts.httpNodeCount += 1;
+    const incoming = incomingByTarget.get(uuid) ?? [];
+    if (incoming.length === 0) {
+      issues.push({
+        code: "http-node-missing-request-source",
+        message: `http node '${uuid}' has no incoming request source`,
+      });
+    }
+
+    for (const entry of incoming) {
+      const sourceMeta = nodeMetaByUuid.get(entry.sourceUuid);
+      if (!sourceMeta) {
+        issues.push({
+          code: "http-request-source-missing",
+          message: `http node '${uuid}' source '${entry.sourceUuid}' does not exist`,
+        });
+        continue;
+      }
+
+      if (sourceMeta.decodeError) {
+        issues.push({
+          code: "http-request-source-decode-error",
+          message: `http source '${entry.sourceUuid}' has invalid payload (${sourceMeta.decodeError})`,
+        });
+        continue;
+      }
+
+      if (sourceMeta.leafnodetype !== "leaflisp" || sourceMeta.logic?.type !== "leaflisp") {
+        issues.push({
+          code: "http-request-source-non-leaflisp",
+          message: `http node '${uuid}' source '${entry.sourceUuid}' must be leaflisp request-builder`,
+        });
+        continue;
+      }
+
+      const expression = String(sourceMeta.logic?.args?.lispexpression ?? "");
+      if (!/bottle\s+["']http-request["']/.test(expression)) {
+        issues.push({
+          code: "http-request-source-missing-http-request-bottle",
+          message: `request source '${entry.sourceUuid}' must emit bottle \"http-request\"`,
+        });
+      }
+
+      for (const token of [":uri", ":operation", ":operands"]) {
+        if (!expression.includes(token)) {
+          warnings.push({
+            code: "http-request-source-missing-token",
+            message: `request source '${entry.sourceUuid}' expression does not contain ${token}`,
+          });
+        }
+      }
+    }
+
+    const outgoing = Array.isArray(nodeByUuid.get(uuid)?.out_edges) ? nodeByUuid.get(uuid).out_edges : [];
+    if (outgoing.length === 0) {
+      issues.push({
+        code: "http-node-missing-parse-target",
+        message: `http node '${uuid}' has no outgoing parse target`,
+      });
+      continue;
+    }
+
+    for (const edge of outgoing) {
+      const targetUuid = edge?.target?.uuid;
+      const targetMeta = typeof targetUuid === "string" ? nodeMetaByUuid.get(targetUuid) : null;
+      if (!targetMeta) {
+        issues.push({
+          code: "http-parse-target-missing",
+          message: `http node '${uuid}' target '${targetUuid ?? "unknown"}' does not exist`,
+        });
+        continue;
+      }
+
+      if (targetMeta.decodeError) {
+        issues.push({
+          code: "http-parse-target-decode-error",
+          message: `parse node '${targetUuid}' has invalid payload (${targetMeta.decodeError})`,
+        });
+        continue;
+      }
+
+      if (targetMeta.leafnodetype !== "leaflisp" || targetMeta.logic?.type !== "leaflisp") {
+        issues.push({
+          code: "http-parse-target-non-leaflisp",
+          message: `http node '${uuid}' target '${targetUuid}' must be leaflisp parser`,
+        });
+        continue;
+      }
+
+      const parseExpression = String(targetMeta.logic?.args?.lispexpression ?? "");
+      if (!parseExpression.includes(":result")) {
+        issues.push({
+          code: "http-parse-target-missing-result-read",
+          message: `parse node '${targetUuid}' should extract :result from HTTP response`,
+        });
+      }
+    }
+  }
+
+  return {
+    pass: issues.length === 0,
+    issues,
+    warnings,
+    facts,
+  };
+};

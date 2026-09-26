@@ -100,3 +100,52 @@ test("run-leaf-graph executes a local graph fixture through ghostos source overr
     await rm(temporaryDirectory, { recursive: true, force: true });
   }
 });
+
+test("run-leaf-graph quiet mode suppresses runtime console chatter", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".run-leaf-graph-test-"));
+  const fakeGhostosDirectory = join(temporaryDirectory, "ghostos");
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  try {
+    await mkdir(join(fakeGhostosDirectory, "src"), { recursive: true });
+    await writeFile(
+      join(fakeGhostosDirectory, "package.json"),
+      `${JSON.stringify({ name: "ghostos", version: ghostosLatest, type: "module" }, null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(fakeGhostosDirectory, "src", "index.core.js"),
+      `export const executeLEAFGraph = async () => {
+  console.log("runtime-stdout-noise");
+  console.error("runtime-stderr-noise");
+  return { OUT1: 42 };
+};
+`,
+      "utf8",
+    );
+
+    await writeFile(
+      graphPath,
+      `${JSON.stringify({ domain: "example", appid: "quiet-fixture", nodes: [] }, null, 2)}\n`,
+      "utf8",
+    );
+
+    const result = await run([
+      "--graph",
+      graphPath,
+      "--ghostos-dir",
+      fakeGhostosDirectory,
+      "--version",
+      ghostosLatest,
+      "--quiet",
+    ]);
+
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.deepEqual(output.output, { OUT1: 42 });
+    assert.equal(result.stderr.includes("runtime-stderr-noise"), false);
+    assert.equal(result.stdout.includes("runtime-stdout-noise"), false);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
