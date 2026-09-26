@@ -3,6 +3,9 @@
 Use this guide when you need a LEAF graph artifact that runs directly with
 `executeLEAFGraph` and avoids GhostOS internals spelunking.
 
+For generalized node/edge payload contracts and decoded base64 shapes, read
+[runtime-dto-payload-contracts.md](runtime-dto-payload-contracts.md).
+
 ## What this kit guarantees
 
 - Authoring starts from a transport DTO scaffold (`domain`, `appid`,
@@ -119,6 +122,16 @@ attach runtime DTO diagnostics:
 node .agents/skills/leaf/scripts/explain-runtime-error.mjs \
   --stderr path/to/stderr.log \
   --graph path/to/graph.json
+```
+
+For targeted payload inspection without manual base64 decoding:
+
+```sh
+node .agents/skills/leaf/scripts/decode-runtime-dto-payloads.mjs \
+  --graph path/to/graph.json \
+  --node REQ_HTTP \
+  --redact \
+  --json
 ```
 
 ## Recommended benchmark workflow
