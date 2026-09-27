@@ -39,7 +39,7 @@ export const issueCatalog = [
     pattern: /Type Error! Expected 'HashMap', but got 'Number'/i,
     severity: "error",
     meaning: "Leaflisp map access attempted on a scalar value.",
-    action: "Check bottle/content extraction and ensure map-typed payload before key lookup.",
+    action: "Check bottle/content extraction and provenance merge: for multi-edge joins, bottle upstream payloads and resolve via leafmixflow key-value map before key lookup.",
   },
   {
     code: "leaflisp_vector_index_undefined",
@@ -47,6 +47,13 @@ export const issueCatalog = [
     severity: "error",
     meaning: "Leaflisp indexed a vector position that does not exist.",
     action: "Ensure operand vectors are populated in the expected order and length before indexing.",
+  },
+  {
+    code: "leaflisp_null_startswith",
+    pattern: /Cannot read properties of null \(reading 'startsWith'\)|Cannot read properties of null \(reading \"startsWith\"\)/i,
+    severity: "error",
+    meaning: "Leaflisp attempted string parsing on a null value; usually caused by parsing :result before HTTP payload is ready.",
+    action: "Use nil-safe parser flow: unwrap bottle/content, read :result, guard nil before parse/coercion, and avoid unchecked pair[0/1] assumptions.",
   },
   {
     code: "operation_not_found",

@@ -65,6 +65,19 @@ test("explain-runtime-error classifies common leaflisp shape mismatch errors", a
   assert.ok(issueCodes.includes("leaflisp_expected_vector_got_number"));
 });
 
+test("explain-runtime-error classifies null startsWith parser errors", async () => {
+  const result = await run([
+    "--text",
+    "LEAFlisp error: {refnode: PARSE_MUL_P3_5}: line: 0 - Cannot read properties of null (reading 'startsWith')",
+  ]);
+
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  const issueCodes = output.issues.map((entry) => entry.code);
+  assert.ok(issueCodes.includes("leaflisp_null_startswith"));
+  assert.equal(output.refnode, "PARSE_MUL_P3_5");
+});
+
 test("explain-runtime-error adds graph diagnostics for malformed runtime DTO", async () => {
   const temporaryDirectory = await mkdtemp(join(skillDirectory, ".explain-runtime-error-test-"));
   const stderrPath = join(temporaryDirectory, "stderr.log");

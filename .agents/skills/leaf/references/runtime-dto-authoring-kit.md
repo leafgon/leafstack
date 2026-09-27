@@ -64,6 +64,37 @@ The scaffold wires:
 IN1 -> REQ_HTTP(leaflisp) -> HTTP_ARITH(leafelement http) -> PARSE_HTTP(leaflisp) -> OUT1
 ```
 
+Use a nil-safe parse node shape for HTTP responses:
+
+```clojure
+(do
+  (def payloadzero (if (isbottle inport) (get inport :_content) inport))
+  (def payload (if (isbottle payloadzero) (get payloadzero :_content) payloadzero))
+  (def result (get payload :result))
+  (if (isnil result) nil result))
+```
+
+Avoid these anti-patterns in parser nodes:
+
+- `(parse (get payload :result))` without checking for missing result;
+- direct `pair` indexing (`(get pair 0)` / `(get pair 1)`) without nil guards.
+
+## Deterministic multi-input joins (important)
+
+When multiple edges enter one `leaflisp` node, `inport` is an array of values,
+but index ordering is not a reliable provenance contract for upstream edges.
+
+Use one of these deterministic patterns:
+
+1. Bottle upstream payloads with semantic names and screen by `:_bname` in
+   downstream `leaflisp`.
+2. Prefer `leafmixflow` as a merge barrier: feed bottled upstream values into
+   `leafmixflow`, then pass the single merged output to `leaflisp` and read by
+   key via `get`.
+
+Avoid positional assumptions such as `(get inport 0)` / `(get inport 1)` for
+multi-edge dependency joins.
+
 ## 2) Validate runtime DTO shape
 
 ```sh
@@ -129,6 +160,8 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   selected by-operation profile.
 - `OPERATION_ID_NOT_FOUND` indicates the request still sends deprecated
   `operationId`; use by-operation payloads only.
+- `Cannot read properties of null (reading 'startsWith')` usually indicates a
+  parser node attempted string parse/coercion on missing HTTP result data.
 
 Use the runtime explainer to classify common stderr signatures and (optionally)
 attach runtime DTO diagnostics:

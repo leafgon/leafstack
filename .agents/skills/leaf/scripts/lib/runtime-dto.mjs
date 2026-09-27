@@ -300,6 +300,31 @@ export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
   }
 
   for (const [uuid, meta] of nodeMetaByUuid.entries()) {
+    if (meta.decodeError) continue;
+
+    if (meta.leafnodetype === "leaflisp" && meta.logic?.type === "leaflisp") {
+      const incoming = incomingByTarget.get(uuid) ?? [];
+      if (incoming.length > 1) {
+        const expression = String(meta.logic?.args?.lispexpression ?? "");
+        const usesIndexAccess = /\(get\s+(?:inport|pair)\s+\d+\)/.test(expression);
+        const readsBottleName = /:_bname|\(get\s+[^)]+\s+:_bname\)/.test(expression);
+
+        if (usesIndexAccess) {
+          issues.push({
+            code: "leaflisp-multi-input-index-access",
+            message: `leaflisp node '${uuid}' receives multiple inputs but indexes positional inport entries; encode provenance in bottles and resolve by bottle name (or merge through leafmixflow before parsing)`,
+          });
+        }
+
+        if (!readsBottleName) {
+          warnings.push({
+            code: "leaflisp-multi-input-provenance-unclear",
+            message: `leaflisp node '${uuid}' receives ${incoming.length} upstream edges with no bottle-name screening; use bottled upstream payloads and/or leafmixflow key-value merge for deterministic provenance`,
+          });
+        }
+      }
+    }
+
     const logicType = meta.logic?.type;
     const elementName = meta.logic?.args?.elementname;
     if (meta.leafnodetype !== "leafelement" || logicType !== "leafelement" || elementName !== "http") {
@@ -400,6 +425,22 @@ export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
         issues.push({
           code: "http-parse-target-missing-result-read",
           message: `parse node '${targetUuid}' should extract :result from HTTP response`,
+        });
+      }
+
+      if (/\bparse\s+\(get\s+payload\s+:result\)/.test(parseExpression)) {
+        issues.push({
+          code: "http-parse-target-unsafe-result-parse",
+          message: `parse node '${targetUuid}' uses (parse (get payload :result)) without nil-safe guard; unwrap bottle/content and guard missing result before parse`,
+        });
+      }
+
+      const indexesPairInputs = /\(get\s+pair\s+0\)|\(get\s+pair\s+1\)/.test(parseExpression);
+      const hasPairNilGuards = /\(isnil\s+pair\)|\(isnil\s+first\)|\(isnil\s+second\)/.test(parseExpression);
+      if (indexesPairInputs && !hasPairNilGuards) {
+        issues.push({
+          code: "http-parse-target-unchecked-pair-assumption",
+          message: `parse node '${targetUuid}' indexes pair[0/1] without nil guards; do not assume both async inputs arrive together`,
         });
       }
     }

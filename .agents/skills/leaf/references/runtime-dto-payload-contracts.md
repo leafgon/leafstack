@@ -74,6 +74,19 @@ Expected downstream envelope from `leafelement(http)`:
 - Success: `_bname: "elementio"` and JSON response in `_content`.
 - Failure: `_bname: "elementio"` and `_content: null`.
 
+Recommended parse flow for HTTP result extraction (`leaflisp`):
+
+```clojure
+(do
+  (def payloadzero (if (isbottle inport) (get inport :_content) inport))
+  (def payload (if (isbottle payloadzero) (get payloadzero :_content) payloadzero))
+  (def result (get payload :result))
+  (if (isnil result) nil result))
+```
+
+Do not parse or index optimistic pair shapes before nil checks. In particular,
+avoid `(parse (get payload :result))` and unguarded `(get pair 0|1)` forms.
+
 ## Canonical template JSON
 
 Use this as the baseline authoring template:
@@ -119,7 +132,7 @@ It contains one coherent HTTP data path plus contract examples for
     "logic": {
       "type": "leaflisp",
       "args": {
-        "lispexpression": "(do (def payload (if (isbottle inport) (get inport :_content) inport)) (get payload :result))"
+        "lispexpression": "(do (def payloadzero (if (isbottle inport) (get inport :_content) inport)) (def payload (if (isbottle payloadzero) (get payloadzero :_content) payloadzero)) (def result (get payload :result)) (if (isnil result) nil result))"
       }
     },
     "appdata": { "position": { "x": 940, "y": 120 } }
@@ -175,6 +188,27 @@ It contains one coherent HTTP data path plus contract examples for
   }
 }
 ```
+
+For deterministic provenance-aware joins, feed an array of bottled values into
+`leafmixflow` and consume the merged map in downstream `leaflisp`.
+
+Conceptual pattern:
+
+```clojure
+; upstream leaflisp nodes
+(bottle "sum-branch" sumValue)
+(bottle "pow-branch" powValue)
+
+; after leafmixflow(dictionary), downstream leaflisp receives map-like payload
+(do
+  (def merged (if (isbottle inport) (get inport :_content) inport))
+  (def lhs (get merged :sum-branch))
+  (def rhs (get merged :pow-branch))
+  (+ lhs rhs))
+```
+
+Do not rely on positional multi-input reads (`(get inport 0/1)`) to identify
+which upstream edge produced which value.
 
 ### `leafchronosflow`
 

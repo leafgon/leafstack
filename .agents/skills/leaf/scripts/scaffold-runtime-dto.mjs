@@ -109,7 +109,7 @@ const requestDataEntries = [
   `:operands [inport ${options.constant}]`,
 ];
 const requestExpression = `(do (def request {:uri "${options.endpoint}" :mode "post" :header {:content-type "application/json"} :data {${requestDataEntries.join(" ")}}}) (bottle "http-request" request))`;
-const parseExpression = "(do (def payload (if (isbottle inport) (get inport :_content) inport)) (get payload :result))";
+const parseExpression = "(do (def payloadzero (if (isbottle inport) (get inport :_content) inport)) (def payload (if (isbottle payloadzero) (get payloadzero :_content) payloadzero)) (def result (get payload :result)) (if (isnil result) nil result))";
 
 const graph = {
   domain: options.domain,
