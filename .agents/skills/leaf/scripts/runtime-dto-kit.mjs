@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const usage = () => {
   console.error(
-    "usage: runtime-dto-kit.mjs --out <graph.json> [--domain <domain>] [--appid <appid>] [--endpoint <url>] [--profile-default <profile-id>] [--operation add|subtract|multiply|divide|power] [--constant <number>] [--operation-id <id>] [--in1 <number>] [--refnode <uuid>] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-smoke]",
+    "usage: runtime-dto-kit.mjs --out <graph.json> [--domain <domain>] [--appid <appid>] [--endpoint <url>] [--profile-default <profile-id>] [--operation add|subtract|multiply|divide|power] [--constant <number>] [--operation-id <id: legacy optional>] [--in1 <number>] [--refnode <uuid>] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-smoke]",
   );
 };
 

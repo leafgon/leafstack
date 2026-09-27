@@ -49,11 +49,18 @@ export const issueCatalog = [
     action: "Ensure operand vectors are populated in the expected order and length before indexing.",
   },
   {
+    code: "operation_not_found",
+    pattern: /OPERATION_NOT_FOUND|Unknown operation key for profile/i,
+    severity: "error",
+    meaning: "Arithmetic API did not find the requested operation key in the selected profile.",
+    action: "Use one of add|subtract|multiply|divide|power and verify profile is configured for by-operation delays.",
+  },
+  {
     code: "operation_id_not_found",
     pattern: /OPERATION_ID_NOT_FOUND/i,
-    severity: "error",
-    meaning: "Arithmetic API did not find `operationId` in selected latency profile.",
-    action: "Use operation IDs provisioned in profile map or apply a validator remapper policy at replay time.",
+    severity: "warning",
+    meaning: "Legacy by-operation-id mode did not find `operationId` in selected latency profile.",
+    action: "Either provide profile-mapped operation IDs in legacy mode, or switch API/server to by-operation mode.",
   },
   {
     code: "profile_not_found",

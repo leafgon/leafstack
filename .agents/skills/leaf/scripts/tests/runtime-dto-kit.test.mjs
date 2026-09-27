@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { access, mkdtemp, rm } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
@@ -56,6 +57,11 @@ test("runtime-dto-kit scaffolds and validates runtime DTO with --skip-smoke", as
     assert.equal(output.steps.scaffold.out, graphPath);
 
     await access(graphPath, constants.R_OK);
+    const graph = JSON.parse(await readFile(graphPath, "utf8"));
+    const reqHttp = graph.nodes.find((node) => node.uuid === "REQ_HTTP");
+    const decoded = JSON.parse(Buffer.from(String(reqHttp.data), "base64").toString("utf8"));
+    const requestExpression = String(decoded?.leaf?.logic?.args?.lispexpression ?? "");
+    assert.ok(!requestExpression.includes(":operationId"));
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }

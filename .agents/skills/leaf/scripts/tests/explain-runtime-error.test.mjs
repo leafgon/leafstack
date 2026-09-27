@@ -40,6 +40,19 @@ test("explain-runtime-error detects known issue signatures from text", async () 
   assert.deepEqual(codes, ["models_manager_decode_warning", "operation_id_not_found"]);
 });
 
+test("explain-runtime-error detects by-operation profile key mismatches", async () => {
+  const result = await run([
+    "--text",
+    "request failed: OPERATION_NOT_FOUND Unknown operation key for profile",
+  ]);
+
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+
+  const codes = output.issues.map((entry) => entry.code);
+  assert.ok(codes.includes("operation_not_found"));
+});
+
 test("explain-runtime-error classifies common leaflisp shape mismatch errors", async () => {
   const result = await run([
     "--text",

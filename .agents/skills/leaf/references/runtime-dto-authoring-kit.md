@@ -26,7 +26,6 @@ node .agents/skills/leaf/scripts/runtime-dto-kit.mjs \
   --appid runtime-dto-http-arith \
   --operation add \
   --constant 2 \
-  --operation-id op-01 \
   --skip-smoke
 ```
 
@@ -56,8 +55,10 @@ node .agents/skills/leaf/scripts/scaffold-runtime-dto.mjs \
   --domain example \
   --appid runtime-dto-http-arith \
   --operation add \
-  --constant 2 \
-  --operation-id op-01
+  --constant 2
+
+`--operation-id` remains available for legacy `by-operation-id` server mode, but
+the default contract uses `profile + operation + operands`.
 ```
 
 The scaffold wires:
@@ -127,8 +128,9 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   indicates a malformed `data` field on node or edge (non-base64 JSON).
 - `_default`-related weave errors usually indicate node logic payload mismatch
   (decoded `leaf.logic.type` does not match executable expectation).
-- `OPERATION_ID_NOT_FOUND` indicates runtime request payload mismatch to the
-  selected latency profile.
+- `OPERATION_NOT_FOUND` indicates the operation key is not configured in the
+  selected by-operation profile.
+- `OPERATION_ID_NOT_FOUND` is a legacy by-operation-id mode mismatch.
 
 Use the runtime explainer to classify common stderr signatures and (optionally)
 attach runtime DTO diagnostics:

@@ -53,12 +53,24 @@ Use a bottle request into `leafelement(http)`:
     "header": { "content-type": "application/json" },
     "data": {
       "profile": "profile-001",
-      "operationId": "op-01",
       "operation": "add",
       "operands": [11, 2]
     }
   },
   "_label": {}
+}
+```
+
+Legacy compatibility note:
+
+- In legacy `by-operation-id` server mode, `operationId` may be provided as an
+  optional field.
+
+Expected API response envelope from the delayed arithmetic service:
+
+```json
+{
+  "result": 13
 }
 ```
 

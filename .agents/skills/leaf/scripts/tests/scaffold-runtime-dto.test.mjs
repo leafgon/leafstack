@@ -27,6 +27,13 @@ const runScript = (scriptPath, args) =>
     child.on("close", (status) => resolveChild({ status, stdout, stderr }));
   });
 
+const readRequestExpression = async (graphPath) => {
+  const graph = JSON.parse(await readFile(graphPath, "utf8"));
+  const reqHttp = graph.nodes.find((node) => node.uuid === "REQ_HTTP");
+  const decoded = JSON.parse(Buffer.from(String(reqHttp.data), "base64").toString("utf8"));
+  return String(decoded?.leaf?.logic?.args?.lispexpression ?? "");
+};
+
 test("scaffold-runtime-dto emits a valid runtime DTO template", async () => {
   const temporaryDirectory = await mkdtemp(join(skillDirectory, ".scaffold-runtime-dto-test-"));
   const outputPath = join(temporaryDirectory, "runtime-dto.json");
@@ -62,6 +69,29 @@ test("scaffold-runtime-dto emits a valid runtime DTO template", async () => {
     assert.equal(graph.domain, "sample-domain");
     assert.equal(graph.appid, "sample-app");
     assert.equal(graph.nodes[2].leafnodetype, "leafelement");
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("scaffold-runtime-dto omits operationId by default", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".scaffold-runtime-dto-test-"));
+  const outputPath = join(temporaryDirectory, "runtime-dto-default.json");
+
+  try {
+    const scaffoldResult = await runScript(scaffoldScript, [
+      "--out",
+      outputPath,
+      "--operation",
+      "add",
+      "--constant",
+      "2",
+    ]);
+
+    assert.equal(scaffoldResult.status, 0, scaffoldResult.stderr);
+    const requestExpression = await readRequestExpression(outputPath);
+    assert.ok(requestExpression.includes(':operation "add"'));
+    assert.ok(!requestExpression.includes(":operationId"));
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }
