@@ -6,7 +6,7 @@ import { encodeBase64Json } from "./lib/runtime-dto.mjs";
 
 const usage = () => {
   console.error(
-    "usage: scaffold-runtime-dto.mjs --out <graph.json> [--domain <domain>] [--appid <appid>] [--endpoint <url>] [--profile-default <profile-id>] [--operation add|subtract|multiply|divide|power] [--constant <number>] [--operation-id <id>]",
+    "usage: scaffold-runtime-dto.mjs --out <graph.json> [--domain <domain>] [--appid <appid>] [--endpoint <url>] [--profile-default <profile-id>] [--operation add|subtract|multiply|divide|power] [--constant <number>]",
   );
 };
 
@@ -20,7 +20,6 @@ const parseArgs = (argv) => {
     "--profile-default",
     "--operation",
     "--constant",
-    "--operation-id",
   ]);
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -52,7 +51,6 @@ const parseArgs = (argv) => {
     profileDefault: String(options["profile-default"] ?? "profile-001"),
     operation,
     constant,
-    operationId: String(options["operation-id"] ?? "op-01"),
   };
 };
 
@@ -105,7 +103,12 @@ try {
   process.exit(2);
 }
 
-const requestExpression = `(do (def request {:uri "${options.endpoint}" :mode "post" :header {:content-type "application/json"} :data {:profile "${options.profileDefault}" :operationId "${options.operationId}" :operation "${options.operation}" :operands [inport ${options.constant}]}}) (bottle "http-request" request))`;
+const requestDataEntries = [
+  `:profile "${options.profileDefault}"`,
+  `:operation "${options.operation}"`,
+  `:operands [inport ${options.constant}]`,
+];
+const requestExpression = `(do (def request {:uri "${options.endpoint}" :mode "post" :header {:content-type "application/json"} :data {${requestDataEntries.join(" ")}}}) (bottle "http-request" request))`;
 const parseExpression = "(do (def payload (if (isbottle inport) (get inport :_content) inport)) (get payload :result))";
 
 const graph = {
@@ -179,7 +182,6 @@ console.log(
       appid: options.appid,
       operation: options.operation,
       constant: options.constant,
-      operationId: options.operationId,
       nodeCount: graph.nodes.length,
       edgeCount: graph.nodes.reduce((count, current) => count + current.out_edges.length, 0),
     },

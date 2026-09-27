@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const usage = () => {
   console.error(
-    "usage: runtime-dto-kit.mjs --out <graph.json> [--domain <domain>] [--appid <appid>] [--endpoint <url>] [--profile-default <profile-id>] [--operation add|subtract|multiply|divide|power] [--constant <number>] [--operation-id <id>] [--in1 <number>] [--refnode <uuid>] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-smoke]",
+    "usage: runtime-dto-kit.mjs --out <graph.json> [--domain <domain>] [--appid <appid>] [--endpoint <url>] [--profile-default <profile-id>] [--operation add|subtract|multiply|divide|power] [--constant <number>] [--in1 <number>] [--refnode <uuid>] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-smoke]",
   );
 };
 
@@ -21,7 +21,6 @@ const parseArgs = (argv) => {
     "--profile-default",
     "--operation",
     "--constant",
-    "--operation-id",
     "--in1",
     "--refnode",
     "--version",
@@ -58,7 +57,6 @@ const parseArgs = (argv) => {
     profileDefault: options["profile-default"],
     operation: options.operation,
     constant: options.constant,
-    operationId: options["operation-id"],
     in1: options.in1,
     refnode: options.refnode,
     version: options.version,
@@ -97,7 +95,6 @@ if (options.endpoint) scaffoldArgs.push("--endpoint", options.endpoint);
 if (options.profileDefault) scaffoldArgs.push("--profile-default", options.profileDefault);
 if (options.operation) scaffoldArgs.push("--operation", options.operation);
 if (options.constant) scaffoldArgs.push("--constant", options.constant);
-if (options.operationId) scaffoldArgs.push("--operation-id", options.operationId);
 
 const validateArgs = ["--graph", options.out];
 
