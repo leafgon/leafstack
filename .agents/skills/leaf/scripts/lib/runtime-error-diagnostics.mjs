@@ -56,6 +56,13 @@ export const issueCatalog = [
     action: "Use LEAFlisp core forms only. Run preflight-runtime-dto.mjs --diagnose to catch token issues before smoke execution.",
   },
   {
+    code: "leaflisp_literal_shell_template",
+    pattern: /\$\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\}|literal shell-template syntax/i,
+    severity: "error",
+    meaning: "Leaflisp source includes shell-style variable templates that are not expanded at runtime.",
+    action: "Do not use ${...} template syntax inside LEAFlisp expressions; set request values directly in payload maps.",
+  },
+  {
     code: "leaflisp_null_startswith",
     pattern: /Cannot read properties of null \(reading 'startsWith'\)|Cannot read properties of null \(reading \"startsWith\"\)/i,
     severity: "error",
@@ -96,6 +103,20 @@ export const issueCatalog = [
     severity: "error",
     meaning: "Artifact shape does not satisfy runtime DTO transport contract.",
     action: "Run validate-runtime-dto.mjs and convert artifact to canonical runtime DTO shape before execution.",
+  },
+  {
+    code: "noncanonical_leaflisp_data",
+    pattern: /noncanonical-leaflisp-data/i,
+    severity: "error",
+    meaning: "Leaf node payload does not satisfy canonical leaflisp data contract.",
+    action: "Re-encode node data to include canonical leaf.logic payload and rerun validate-runtime-dto.mjs.",
+  },
+  {
+    code: "unsupported_leaf_node_type",
+    pattern: /unsupported leaf node type|unknown leafnodetype|unknown leaf\.logic\.type/i,
+    severity: "error",
+    meaning: "Graph references a leaf node type unsupported by the runtime/tooling context.",
+    action: "Use documented node types and verify nodes[].leafnodetype matches decoded leaf.logic.type.",
   },
   {
     code: "http_contract_missing_required_fields",

@@ -604,3 +604,122 @@ test("preflight-runtime-dto blocks unsupported leaflisp dialect tokens", async (
     await rm(temporaryDirectory, { recursive: true, force: true });
   }
 });
+
+test("preflight-runtime-dto blocks literal shell templates in leaflisp HTTP request builders", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  const shellTemplateFixture = {
+    domain: "example",
+    appid: "shell-template-fixture",
+    nodes: [
+      {
+        uuid: "IN1",
+        leafnodetype: "leafinflowport",
+        data: encode({ leaf: { logic: { type: "leafinflowport", args: {} } } }),
+        out_edges: [
+          {
+            uuid: "E1",
+            source: { uuid: "IN1" },
+            target: { uuid: "REQ_HTTP" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "REQ_HTTP",
+        leafnodetype: "leaflisp",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leaflisp",
+              args: {
+                lispexpression: "(do (def request {:uri \"http://127.0.0.1:8080/v1/operations\" :mode \"post\" :header {:content-type \"application/json\"} :data {:profile \"${ARITHMETIC_PROFILE_ID:-profile-001}\" :operation \"add\" :operands [inport 2]}}) (bottle \"http-request\" request))",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E2",
+            source: { uuid: "REQ_HTTP" },
+            target: { uuid: "HTTP_ARITH" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "HTTP_ARITH",
+        leafnodetype: "leafelement",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leafelement",
+              args: {
+                elementname: "http",
+                elementconfig: "",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E3",
+            source: { uuid: "HTTP_ARITH" },
+            target: { uuid: "PARSE_HTTP" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "PARSE_HTTP",
+        leafnodetype: "leaflisp",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leaflisp",
+              args: {
+                lispexpression: "(do (def payloadzero (if (isbottle inport) (get inport :_content) inport)) (def payload (if (isbottle payloadzero) (get payloadzero :_content) payloadzero)) (def result (get payload :result)) {:OUT1 result})",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E4",
+            source: { uuid: "PARSE_HTTP" },
+            target: { uuid: "OUT1" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "OUT1",
+        leafnodetype: "leafoutflowport",
+        data: encode({ leaf: { logic: { type: "leafoutflowport", args: {} } } }),
+        out_edges: [],
+      },
+    ],
+  };
+
+  try {
+    await writeFile(graphPath, `${JSON.stringify(shellTemplateFixture, null, 2)}\n`, "utf8");
+
+    const result = await run([
+      "--graph",
+      graphPath,
+      "--out-key",
+      "OUT1",
+      "--diagnose",
+    ]);
+
+    assert.equal(result.status, 1, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.pass, false);
+    assert.ok(output.checks.includes("static-contract:leaflisp-literal-shell-template"));
+    assert.ok(output.checks.includes("static-contract:http-request-source-literal-shell-template"));
+    assert.equal(output.steps.smoke, null);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});

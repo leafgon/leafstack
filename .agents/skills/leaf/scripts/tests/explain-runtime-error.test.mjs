@@ -66,6 +66,20 @@ test("explain-runtime-error classifies runtime DTO shape-contract drift", async 
   assert.ok(codes.includes("runtime_dto_shape_invalid"));
 });
 
+test("explain-runtime-error classifies shell-template misuse and noncanonical payload", async () => {
+  const result = await run([
+    "--text",
+    "request source 'REQ_HTTP' contains literal shell-template syntax (${ARITHMETIC_PROFILE_ID:-profile-001}); noncanonical-leaflisp-data",
+  ]);
+
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+
+  const codes = output.issues.map((entry) => entry.code);
+  assert.ok(codes.includes("leaflisp_literal_shell_template"));
+  assert.ok(codes.includes("noncanonical_leaflisp_data"));
+});
+
 test("explain-runtime-error classifies common leaflisp shape mismatch errors", async () => {
   const result = await run([
     "--text",

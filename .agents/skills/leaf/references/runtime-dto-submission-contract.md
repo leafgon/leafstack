@@ -38,7 +38,26 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
 ```
 
 If `preflight-runtime-dto.mjs` returns `completion.readyToSubmit=true`, stop and
-submit the artifact.
+submit the artifact. Do not continue exploratory retries after this signal.
+
+## Optional artifact provenance metadata
+
+You may include optional non-executed metadata fields for traceability, for
+example:
+
+```json
+{
+  "meta": {
+    "authoredBy": "agent-name",
+    "generatedAt": "2026-09-27T12:00:00Z",
+    "taskId": "opaque-task-id",
+    "toolVersion": "leafstack-vX.Y.Z"
+  }
+}
+```
+
+Keep runtime-critical fields unchanged. Metadata must not replace or reshape
+`domain/appid/nodes/out_edges` contracts.
 
 ## HTTP arithmetic contract (when used)
 
@@ -51,6 +70,9 @@ For arithmetic over `leafelement(http)`, request payload must include:
 Recommended:
 
 - include `:profile` in `:data` (or rely on runtime default profile policy).
+
+Do not use shell-template syntax inside LEAFlisp strings (for example
+`${ENV_VAR:-fallback}`); those templates are not expanded by LEAFlisp runtime.
 
 Parser nodes should unwrap bottle/content, then read `:result` with nil safety.
 

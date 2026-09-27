@@ -6,6 +6,7 @@ Use this reference when authoring LEAF runtime DTO graphs that execute with
 Also read:
 
 - [runtime-dto-submission-contract.md](runtime-dto-submission-contract.md)
+- [runtime-dto-quickstart.md](runtime-dto-quickstart.md)
 - [leaflisp-gotchas.md](leaflisp-gotchas.md)
 - [bounded-debug-protocol.md](bounded-debug-protocol.md)
 
@@ -77,6 +78,9 @@ Required request keys for arithmetic API contract:
 Recommended:
 
 - `data.profile`
+
+Do not embed shell templates such as `${ARITHMETIC_PROFILE_ID:-profile-001}` in
+LEAFlisp expression strings; LEAFlisp does not perform shell expansion.
 
 Expected API response envelope from the delayed arithmetic service:
 
@@ -226,6 +230,27 @@ Conceptual pattern:
 
 Do not rely on positional multi-input reads (`(get inport 0/1)`) to identify
 which upstream edge produced which value.
+
+## Node behavior quick matrix
+
+| Node type | Use for | Input expectation | Output expectation | Common mistake |
+|---|---|---|---|---|
+| `leafgateflow` | Admit only named bottle channels | bottle or map-like flow with key labels | gated stream for matching key | treating it as value transformer |
+| `leafmixflow` | Deterministic join/merge of upstream values | multiple bottled or keyed upstream values | merged dictionary-like payload | assuming positional edge order |
+| `leafchronosflow` | time/scheduling boundary in flow graph | upstream event/value | deferred/timed emission | using it as arithmetic node |
+| `leafspell` | invoke named reusable spell | invocation payload and connected lambda/data edges | spell invocation output | spelling mismatch with spelldef |
+| `leafspelldef` | define reusable spell boundary | internal spell graph wiring | exportable spell endpoint | missing callable spell name wiring |
+
+## Minimal spell call/definition wiring
+
+When combining `leafspell` and `leafspelldef`, keep names consistent and
+provide at least one deterministic in->out path inside the spell definition.
+
+Conceptual checklist:
+
+1. `leafspelldef.args.spellname` exactly matches `leafspell.args.spellname`.
+2. Spell graph has a clear entry node and one output path.
+3. Runtime DTO payload for both nodes has canonical `leaf.logic.type` and args.
 
 ### `leafchronosflow`
 

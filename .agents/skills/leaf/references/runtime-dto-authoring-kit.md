@@ -7,6 +7,8 @@ For generalized node/edge payload contracts and decoded base64 shapes, read
 [runtime-dto-payload-contracts.md](runtime-dto-payload-contracts.md).
 For strict accepted/rejected runtime artifact shapes, read
 [runtime-dto-submission-contract.md](runtime-dto-submission-contract.md).
+For a short end-to-end command path, read
+[runtime-dto-quickstart.md](runtime-dto-quickstart.md).
 For dialect pitfalls, read [leaflisp-gotchas.md](leaflisp-gotchas.md).
 For bounded triage flow, read [bounded-debug-protocol.md](bounded-debug-protocol.md).
 
@@ -82,6 +84,8 @@ Avoid these anti-patterns in parser nodes:
 
 - `(parse (get payload :result))` without checking for missing result;
 - direct `pair` indexing (`(get pair 0)` / `(get pair 1)`) without nil guards.
+- shell-template strings inside LEAFlisp source (for example
+  `${ARITHMETIC_PROFILE_ID:-profile-001}`), which remain literal at runtime.
 
 ## Deterministic multi-input joins (important)
 
@@ -208,3 +212,6 @@ For generated artifacts, require this order before submission:
 
 This keeps runtime fixture quality high without reverse-engineering bundled
 GhostOS internals.
+
+Stop immediately when preflight reports
+`completion.readyToSubmit=true` and `completion.stopNow=true`.

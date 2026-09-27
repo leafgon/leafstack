@@ -45,7 +45,8 @@ Stop and submit when preflight returns:
 - `completion.readyToSubmit=true`
 - `completion.stopNow=true`
 
-Do not continue exploratory scans once those conditions are met.
+Do not continue exploratory scans once those conditions are met. Treat this as
+a hard stop condition for normal authoring workflows.
 
 ## Avoid
 

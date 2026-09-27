@@ -14,6 +14,17 @@ These patterns are not valid LEAFlisp authoring shortcuts in this skill:
 `preflight-runtime-dto.mjs` now blocks these patterns as static contract
 violations.
 
+## Shell-template strings are not runtime env expansion
+
+Avoid shell-style placeholders inside LEAFlisp source, for example:
+
+```clojure
+"${ARITHMETIC_PROFILE_ID:-profile-001}"
+```
+
+LEAFlisp treats this as a literal string, not an environment lookup. Set values
+directly in request payload construction logic.
+
 ## Safer replacements
 
 - Use direct map/vector literals when needed in your target runtime grammar.

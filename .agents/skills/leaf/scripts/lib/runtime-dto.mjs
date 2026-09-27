@@ -353,6 +353,13 @@ export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
       const incoming = incomingByTarget.get(uuid) ?? [];
       const expression = String(meta.logic?.args?.lispexpression ?? "");
 
+      if (/\$\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\}/.test(expression)) {
+        issues.push({
+          code: "leaflisp-literal-shell-template",
+          message: `leaflisp node '${uuid}' contains shell-template syntax (\${...}); LEAFlisp does not expand shell env templates at runtime`,
+        });
+      }
+
       for (const rule of [
         { code: "leaflisp-unsupported-token-list", pattern: /\(list\b/, token: "(list ...)" },
         { code: "leaflisp-unsupported-token-vector", pattern: /\(vector\b/, token: "(vector ...)" },
@@ -432,6 +439,13 @@ export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
         issues.push({
           code: "http-request-source-missing-http-request-bottle",
           message: `request source '${entry.sourceUuid}' must emit bottle \"http-request\"`,
+        });
+      }
+
+      if (/\$\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\}/.test(expression)) {
+        issues.push({
+          code: "http-request-source-literal-shell-template",
+          message: `request source '${entry.sourceUuid}' contains literal shell-template syntax (\${...}); set profile explicitly in payload data and avoid shell substitution syntax in LEAFlisp`,
         });
       }
 
