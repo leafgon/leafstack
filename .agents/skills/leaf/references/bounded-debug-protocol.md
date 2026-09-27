@@ -2,6 +2,9 @@
 
 Use this protocol to reduce token-heavy exploration and converge quickly.
 
+Also read [runtime-dto-failure-cookbook.md](runtime-dto-failure-cookbook.md)
+for first-fix recipes keyed by check/error code.
+
 ## Goal
 
 Keep the runtime DTO loop deterministic:
@@ -37,6 +40,9 @@ node .agents/skills/leaf/scripts/decode-runtime-dto-payloads.mjs \
 
 Re-run preflight once after the focused fix.
 
+If checks include `missing-output-key:OUT1`, apply the cookbook sink-wiring fix
+before any other edits.
+
 ## Stop conditions
 
 Stop and submit when preflight returns:
@@ -54,3 +60,4 @@ a hard stop condition for normal authoring workflows.
 - guessing API schema from past artifacts;
 - positional multi-input assumptions (`inport[0]`, `inport[1]`) for provenance;
 - repeated smoke loops without a concrete code change.
+- broad temporary probe matrices (`tmp-probe-*`) when first-fix recipe already exists.

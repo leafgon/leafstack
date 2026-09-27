@@ -37,6 +37,7 @@ Run the environment survey before mutations when needed:
 - Read [references/offline-validation.md](references/offline-validation.md) when validating task-pack contract DAG edges and acceptance vectors for offline authored graphs.
 - Read [references/runtime-dto-authoring-kit.md](references/runtime-dto-authoring-kit.md) when authoring executable runtime DTO graph fixtures and avoiding declarative-schema drift.
 - Read [references/runtime-dto-payload-contracts.md](references/runtime-dto-payload-contracts.md) for general runtime DTO payload contracts, including decoded base64 node/edge shapes and the reusable JSON template.
+- Read [references/runtime-dto-failure-cookbook.md](references/runtime-dto-failure-cookbook.md) for first-fix recipes keyed by preflight/runtime error codes.
 - Read [references/runtime-dto-submission-contract.md](references/runtime-dto-submission-contract.md) for strict accepted/rejected artifact-shape rules and completion gates.
 - Read [references/runtime-dto-quickstart.md](references/runtime-dto-quickstart.md) for the shortest safe author-validate-preflight-stop loop.
 - Read [references/leaflisp-gotchas.md](references/leaflisp-gotchas.md) before writing join-heavy `leaflisp`, especially when multiple edges feed one node.

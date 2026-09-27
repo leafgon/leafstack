@@ -9,8 +9,65 @@ Also read:
 - [runtime-dto-quickstart.md](runtime-dto-quickstart.md)
 - [leaflisp-gotchas.md](leaflisp-gotchas.md)
 - [bounded-debug-protocol.md](bounded-debug-protocol.md)
+- [runtime-dto-failure-cookbook.md](runtime-dto-failure-cookbook.md)
 
 This document is intentionally general-purpose (not benchmark-specific).
+
+## Operational contracts by `leafnodetype` (prevent contract guessing)
+
+Use this matrix as the authoritative runtime contract surface when wiring a
+graph. If a run fails, fix against this section first before probing.
+
+| `leafnodetype` | Required contract | Input shape expectation | Output shape expectation |
+|---|---|---|---|
+| `leafinflowport` | Source port only. Keep stable source UUID for required input keys. | Runtime input object, typically `{ IN1: <number> }`. | Pass-through source payload to outgoing edges (often bottle-like `elementio`). |
+| `leafoutflowport` | Sink port only. Required sink UUID/key (for example `OUT1`) must exist and be reachable by at least one incoming path. | One computed upstream value path. | Final output object contains required sink key, for example `{ OUT1: <scalar or vector> }`. |
+| `leaflisp` (request builder) | Emit bottle `"http-request"` containing `uri`, `mode`, and `data.{profile,operation,operands}`. | Source value or bottle content. | Bottle: `{ _bname:"http-request", _content:{...request...} }`. |
+| `leafelement` with `elementname:"http"` | Consume a `"http-request"` bottle and execute HTTP call. | Bottle request payload from upstream `leaflisp`. | Bottle-like `elementio`; success `_content` contains response JSON; failures may carry error payload. |
+| `leaflisp` (response parser) | Nil-safe unwrap of bottle/content; read `:result`; avoid unchecked pair/index assumptions. | `elementio` bottle or plain response payload. | Numeric result (or named bottle when composing joins). |
+| `leafmixflow` | Deterministic provenance merge for multi-input joins; prefer keyed bottle merge over index access. | Array of bottled inputs from multiple edges. | Key-value map payload for deterministic downstream `get` access. |
+| `leafgateflow` | Dependency/value gate only; does not replace parser/sink requirements. | Upstream payload(s) for gate condition routing. | Routed payload or gated branch output. |
+| `leafchronosflow` | Ordering/barrier control only; preserve data-path contracts on adjacent nodes. | Upstream payload(s) plus ordering boundary. | Ordered pass-through/barrier output. |
+| `leafspell` / `leafspelldef` | Use only when subgraph dispatch is intentional; do not use to bypass runtime DTO transport contract. | Spell invocation payload. | Spell/subgraph result payload. |
+
+## Canonical IN1 -> HTTP -> OUT1 pattern
+
+Use this as the default authored path before any optimization/refactor:
+
+```text
+IN1 -> REQ_HTTP(leaflisp) -> HTTP_ARITH(leafelement http) -> PARSE_HTTP(leaflisp) -> OUT1
+```
+
+Minimal request-builder (`REQ_HTTP`) expression:
+
+```clojure
+(do
+  (def x (get inport :IN1))
+  (def request {
+    :uri "http://127.0.0.1:8080/v1/operations"
+    :mode "post"
+    :header {:content-type "application/json"}
+    :data {
+      :profile "profile-001"
+      :operation "add"
+      :operands [x 2]
+    }
+  })
+  (bottle "http-request" request))
+```
+
+Minimal nil-safe parser (`PARSE_HTTP`) expression:
+
+```clojure
+(do
+  (def payloadzero (if (isbottle inport) (get inport :_content) inport))
+  (def payload (if (isbottle payloadzero) (get payloadzero :_content) payloadzero))
+  (def result (get payload :result))
+  (if (isnil result) nil result))
+```
+
+For fan-in joins, bottle named branch results and merge with `leafmixflow`
+before downstream `leaflisp` key access.
 
 ## Transport DTO contract (top-level)
 

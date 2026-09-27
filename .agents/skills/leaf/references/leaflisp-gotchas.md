@@ -25,6 +25,31 @@ Avoid shell-style placeholders inside LEAFlisp source, for example:
 LEAFlisp treats this as a literal string, not an environment lookup. Set values
 directly in request payload construction logic.
 
+## IN1 source extraction contract
+
+For source-stage arithmetic request builders, use explicit keyed extraction:
+
+```clojure
+(def x (get inport :IN1))
+```
+
+Do not assume positional secondary aliases (for example `inport2`) for source
+values.
+
+## HTTP parser contract (nil-safe)
+
+Prefer this parser shape for `leafelement(http)` output:
+
+```clojure
+(do
+  (def payloadzero (if (isbottle inport) (get inport :_content) inport))
+  (def payload (if (isbottle payloadzero) (get payloadzero :_content) payloadzero))
+  (def result (get payload :result))
+  (if (isnil result) nil result))
+```
+
+Avoid optimistic assumptions that `inport` is already the final response map.
+
 ## Safer replacements
 
 - Use direct map/vector literals when needed in your target runtime grammar.
