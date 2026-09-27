@@ -11,6 +11,8 @@ For a short end-to-end command path, read
 [runtime-dto-quickstart.md](runtime-dto-quickstart.md).
 For dialect pitfalls, read [leaflisp-gotchas.md](leaflisp-gotchas.md).
 For bounded triage flow, read [bounded-debug-protocol.md](bounded-debug-protocol.md).
+For first-fix recipes keyed by runtime checks/errors, read
+[runtime-dto-failure-cookbook.md](runtime-dto-failure-cookbook.md).
 
 ## What this kit guarantees
 
@@ -50,6 +52,20 @@ node .agents/skills/leaf/scripts/runtime-dto-fastlane.mjs \
   --quiet \
   --log-file .tmp/leaf-fastlane.log
 ```
+
+## Canonical convergence path (use before any exploratory probing)
+
+1. Start from scaffold and keep `IN1` and `OUT1` stable.
+2. Author only this path first:
+
+```text
+IN1 -> REQ_HTTP(leaflisp) -> HTTP_ARITH(leafelement http) -> PARSE_HTTP(leaflisp) -> OUT1
+```
+
+3. Run fastlane once.
+4. If fastlane/preflight fails, apply the first fix recipe from
+   `runtime-dto-failure-cookbook.md`.
+5. Rerun preflight exactly once per targeted fix.
 
 ## 1) Scaffold a runtime DTO graph
 

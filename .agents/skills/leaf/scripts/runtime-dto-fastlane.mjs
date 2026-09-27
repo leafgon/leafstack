@@ -132,6 +132,15 @@ try {
 
   const preflight = JSON.parse(raw);
   const issues = Array.isArray(preflight?.diagnostics?.issues) ? preflight.diagnostics.issues : [];
+  const firstFixRecipe = preflight?.firstFixRecipe ?? null;
+  const preflightCommands = Array.isArray(preflight?.nextCommands) ? preflight.nextCommands.slice(0, 2) : [];
+  const nextCommands = Array.isArray(firstFixRecipe?.nextCommands) && firstFixRecipe.nextCommands.length > 0
+    ? firstFixRecipe.nextCommands.slice(0, 2)
+    : preflightCommands;
+  const nextActions = [
+    firstFixRecipe?.summary,
+    ...issues.map((issue) => issue.action),
+  ].filter(Boolean).slice(0, 3);
   const output = {
     mode: "runtime-dto-fastlane",
     pass: Boolean(preflight?.pass),
@@ -140,9 +149,10 @@ try {
     input: { IN1: options.in1 },
     checks: Array.isArray(preflight?.checks) ? preflight.checks : [],
     issueCount: issues.length,
-    topIssue: issues[0] ?? null,
-    nextActions: issues.map((issue) => issue.action).filter(Boolean).slice(0, 3),
-    nextCommands: Array.isArray(preflight?.nextCommands) ? preflight.nextCommands.slice(0, 2) : [],
+    topIssue: firstFixRecipe ?? issues[0] ?? null,
+    firstFixRecipe,
+    nextActions,
+    nextCommands,
     diagnostics: preflight?.diagnostics ?? null,
     preflight,
   };
@@ -158,6 +168,15 @@ try {
       const preflight = JSON.parse(stdoutText);
       if (preflight?.mode === "preflight-runtime-dto") {
         const issues = Array.isArray(preflight?.diagnostics?.issues) ? preflight.diagnostics.issues : [];
+        const firstFixRecipe = preflight?.firstFixRecipe ?? null;
+        const preflightCommands = Array.isArray(preflight?.nextCommands) ? preflight.nextCommands.slice(0, 2) : [];
+        const nextCommands = Array.isArray(firstFixRecipe?.nextCommands) && firstFixRecipe.nextCommands.length > 0
+          ? firstFixRecipe.nextCommands.slice(0, 2)
+          : preflightCommands;
+        const nextActions = [
+          firstFixRecipe?.summary,
+          ...issues.map((issue) => issue.action),
+        ].filter(Boolean).slice(0, 3);
         const output = {
           mode: "runtime-dto-fastlane",
           pass: Boolean(preflight?.pass),
@@ -166,9 +185,10 @@ try {
           input: { IN1: options.in1 },
           checks: Array.isArray(preflight?.checks) ? preflight.checks : [],
           issueCount: issues.length,
-          topIssue: issues[0] ?? null,
-          nextActions: issues.map((issue) => issue.action).filter(Boolean).slice(0, 3),
-          nextCommands: Array.isArray(preflight?.nextCommands) ? preflight.nextCommands.slice(0, 2) : [],
+          topIssue: firstFixRecipe ?? issues[0] ?? null,
+          firstFixRecipe,
+          nextActions,
+          nextCommands,
           diagnostics: preflight?.diagnostics ?? null,
           preflight,
         };

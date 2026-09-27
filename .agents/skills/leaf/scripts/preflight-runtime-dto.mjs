@@ -149,6 +149,125 @@ const buildDecodeCommand = (options, refnode) => {
   ].join(" ");
 };
 
+const buildFirstFixRecipe = ({ checks, diagnostics, outKey, options, refnode }) => {
+  const safeChecks = Array.isArray(checks) ? checks : [];
+  const safeDiagnostics = Array.isArray(diagnostics) ? diagnostics : [];
+  const firstDiagnosticCode = typeof safeDiagnostics[0]?.code === "string" ? safeDiagnostics[0].code : null;
+
+  const recipe = {
+    code: null,
+    summary: null,
+    steps: [],
+    nextCommands: [],
+  };
+
+  if (safeChecks.includes(`missing-output-key:${outKey}`)) {
+    recipe.code = `missing-output-key:${outKey}`;
+    recipe.summary = `Repair sink mapping for '${outKey}' before any other changes.`;
+    recipe.steps = [
+      `Ensure node '${outKey}' exists with leafnodetype 'leafoutflowport'.`,
+      `Ensure at least one compute/parse node has an outgoing edge targeting '${outKey}'.`,
+      "Ensure upstream parser emits scalar/vector value (not empty elementio wrapper).",
+      "Rerun preflight once after the sink fix.",
+    ];
+    recipe.nextCommands = [buildPreflightCommand(options)];
+    return recipe;
+  }
+
+  const staticContractCheck = safeChecks.find((entry) => entry.startsWith("static-contract:"));
+  if (staticContractCheck) {
+    const code = staticContractCheck.replace("static-contract:", "");
+    const staticMap = {
+      "http-node-missing-request-source": {
+        summary: "Add a request-builder leaflisp upstream of leafelement(http).",
+        steps: [
+          "Create/wire request-builder node into HTTP node.",
+          "Emit bottle 'http-request' from request-builder.",
+          "Rerun preflight.",
+        ],
+      },
+      "http-request-source-missing-http-request-bottle": {
+        summary: "Request builder must emit bottle 'http-request'.",
+        steps: [
+          "Return `(bottle \"http-request\" request)` from request builder.",
+          "Keep request map keys: :uri, :mode, :header, :data.{profile,operation,operands}.",
+          "Rerun preflight.",
+        ],
+      },
+      "http-request-source-missing-required-token": {
+        summary: "Request payload is missing required HTTP contract tokens.",
+        steps: [
+          "Ensure request expression includes :uri, :mode, :data, :operation, :operands.",
+          "Keep :profile present for deterministic profile selection.",
+          "Rerun preflight.",
+        ],
+      },
+      "http-parse-target-missing-result-read": {
+        summary: "HTTP parser must read :result from the response payload.",
+        steps: [
+          "Unwrap bottle/content nil-safely.",
+          "Read :result and return parsed scalar/vector output.",
+          "Rerun preflight.",
+        ],
+      },
+    };
+
+    if (staticMap[code]) {
+      recipe.code = `static-contract:${code}`;
+      recipe.summary = staticMap[code].summary;
+      recipe.steps = staticMap[code].steps;
+      recipe.nextCommands = [buildPreflightCommand(options)];
+      return recipe;
+    }
+  }
+
+  const diagnosticMap = {
+    operation_not_found: {
+      summary: "Use API operation keys add|subtract|multiply|divide|power only.",
+      steps: [
+        "Set request data.operation to add|subtract|multiply|divide|power.",
+        "Ensure payload uses { profile, operation, operands }.",
+        "Rerun preflight.",
+      ],
+    },
+    profile_not_found: {
+      summary: "Profile identifier is invalid for current server config.",
+      steps: [
+        "Set profile to a valid configured value (for example profile-001).",
+        "Avoid shell-template literals inside LEAFlisp expressions.",
+        "Rerun preflight.",
+      ],
+    },
+    leaflisp_unsupported_tokens: {
+      summary: "Replace unsupported LEAFlisp tokens with supported core forms.",
+      steps: [
+        "Remove list/vector/array/inport2 token usage.",
+        "For joins, bottle upstream values and merge via leafmixflow.",
+        "Rerun preflight.",
+      ],
+    },
+    leaflisp_literal_shell_template: {
+      summary: "Remove shell-template literals from LEAFlisp source.",
+      steps: [
+        "Do not use ${...} syntax in LEAFlisp.",
+        "Set request payload values directly.",
+        "Rerun preflight.",
+      ],
+    },
+  };
+
+  if (firstDiagnosticCode && diagnosticMap[firstDiagnosticCode]) {
+    recipe.code = firstDiagnosticCode;
+    recipe.summary = diagnosticMap[firstDiagnosticCode].summary;
+    recipe.steps = diagnosticMap[firstDiagnosticCode].steps;
+    const decodeCommand = buildDecodeCommand(options, refnode);
+    recipe.nextCommands = decodeCommand ? [decodeCommand, buildPreflightCommand(options)] : [buildPreflightCommand(options)];
+    return recipe;
+  }
+
+  return null;
+};
+
 const runScriptJson = async (scriptPath, args, options) => {
   try {
     const output = execFileSync(process.execPath, [scriptPath, ...args], {
@@ -426,7 +545,21 @@ try {
     const minimalCommands = [buildPreflightCommand(options)];
     const decodeCommand = buildDecodeCommand(options, refnode);
     if (decodeCommand) minimalCommands.push(decodeCommand);
-    output.nextCommands = minimalCommands.slice(0, 2);
+    const firstFixRecipe = buildFirstFixRecipe({
+      checks,
+      diagnostics: issueList,
+      outKey: options.outKey,
+      options,
+      refnode,
+    });
+    if (firstFixRecipe) {
+      output.firstFixRecipe = firstFixRecipe;
+      output.nextCommands = firstFixRecipe.nextCommands.length > 0
+        ? firstFixRecipe.nextCommands.slice(0, 2)
+        : minimalCommands.slice(0, 2);
+    } else {
+      output.nextCommands = minimalCommands.slice(0, 2);
+    }
   }
 
   output.completion = pass

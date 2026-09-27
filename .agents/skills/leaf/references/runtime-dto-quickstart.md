@@ -27,6 +27,7 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
 ```
 
 Apply the first concrete fix from `diagnostics.issues`, then rerun preflight.
+If `firstFixRecipe` is present, prefer it over ad-hoc probing.
 
 ## 4) Stop when done
 

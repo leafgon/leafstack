@@ -106,9 +106,9 @@ try {
 const requestDataEntries = [
   `:profile "${options.profileDefault}"`,
   `:operation "${options.operation}"`,
-  `:operands [inport ${options.constant}]`,
+  `:operands [x ${options.constant}]`,
 ];
-const requestExpression = `(do (def request {:uri "${options.endpoint}" :mode "post" :header {:content-type "application/json"} :data {${requestDataEntries.join(" ")}}}) (bottle "http-request" request))`;
+const requestExpression = `(do (def x (get inport :IN1)) (def request {:uri "${options.endpoint}" :mode "post" :header {:content-type "application/json"} :data {${requestDataEntries.join(" ")}}}) (bottle "http-request" request))`;
 const parseExpression = "(do (def payloadzero (if (isbottle inport) (get inport :_content) inport)) (def payload (if (isbottle payloadzero) (get payloadzero :_content) payloadzero)) (def result (get payload :result)) (if (isnil result) nil result))";
 
 const graph = {
