@@ -5,6 +5,10 @@ Use this guide when you need a LEAF graph artifact that runs directly with
 
 For generalized node/edge payload contracts and decoded base64 shapes, read
 [runtime-dto-payload-contracts.md](runtime-dto-payload-contracts.md).
+For strict accepted/rejected runtime artifact shapes, read
+[runtime-dto-submission-contract.md](runtime-dto-submission-contract.md).
+For dialect pitfalls, read [leaflisp-gotchas.md](leaflisp-gotchas.md).
+For bounded triage flow, read [bounded-debug-protocol.md](bounded-debug-protocol.md).
 
 ## What this kit guarantees
 

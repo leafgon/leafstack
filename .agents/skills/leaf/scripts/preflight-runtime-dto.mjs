@@ -116,6 +116,39 @@ const classifyOutValue = (value) => {
   return "other";
 };
 
+const quoteArg = (value) => {
+  const raw = String(value);
+  if (/^[A-Za-z0-9_./:-]+$/.test(raw)) return raw;
+  return `'${raw.replace(/'/g, `'\\''`)}'`;
+};
+
+const buildPreflightCommand = (options) => {
+  const command = [
+    "node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs",
+    `--graph ${quoteArg(options.graph)}`,
+    `--in1 ${quoteArg(options.in1)}`,
+    `--out-key ${quoteArg(options.outKey)}`,
+    `--out-kind ${quoteArg(options.outKind)}`,
+    "--diagnose",
+  ];
+  if (Number.isInteger(options.outLength)) command.push(`--out-length ${quoteArg(options.outLength)}`);
+  if (options.version) command.push(`--version ${quoteArg(options.version)}`);
+  if (options.ghostosDir) command.push(`--ghostos-dir ${quoteArg(options.ghostosDir)}`);
+  if (options.skipVersionCheck) command.push("--skip-version-check");
+  return command.join(" ");
+};
+
+const buildDecodeCommand = (options, refnode) => {
+  if (typeof refnode !== "string" || refnode.length === 0) return null;
+  return [
+    "node .agents/skills/leaf/scripts/decode-runtime-dto-payloads.mjs",
+    `--graph ${quoteArg(options.graph)}`,
+    `--node ${quoteArg(refnode)}`,
+    "--redact",
+    "--json",
+  ].join(" ");
+};
+
 const runScriptJson = async (scriptPath, args, options) => {
   try {
     const output = execFileSync(process.execPath, [scriptPath, ...args], {
@@ -389,6 +422,27 @@ try {
       focus,
       nextActions: issueList.map((issue) => issue.action).filter(Boolean).slice(0, 3),
     };
+
+    const minimalCommands = [buildPreflightCommand(options)];
+    const decodeCommand = buildDecodeCommand(options, refnode);
+    if (decodeCommand) minimalCommands.push(decodeCommand);
+    output.nextCommands = minimalCommands.slice(0, 2);
+  }
+
+  output.completion = pass
+    ? {
+      readyToSubmit: true,
+      stopNow: true,
+      reason: "Runtime DTO shape, static contracts, and smoke/output checks passed.",
+    }
+    : {
+      readyToSubmit: false,
+      stopNow: false,
+      reason: "One or more preflight gates failed; apply diagnostics and rerun preflight.",
+    };
+
+  if (!output.nextCommands) {
+    output.nextCommands = [buildPreflightCommand(options)];
   }
 
   console.log(formatJson(output, options));

@@ -3,6 +3,12 @@
 Use this reference when authoring LEAF runtime DTO graphs that execute with
 `executeLEAFGraph` and when validating base64 payloads for common node types.
 
+Also read:
+
+- [runtime-dto-submission-contract.md](runtime-dto-submission-contract.md)
+- [leaflisp-gotchas.md](leaflisp-gotchas.md)
+- [bounded-debug-protocol.md](bounded-debug-protocol.md)
+
 This document is intentionally general-purpose (not benchmark-specific).
 
 ## Transport DTO contract (top-level)
@@ -60,6 +66,17 @@ Use a bottle request into `leafelement(http)`:
   "_label": {}
 }
 ```
+
+Required request keys for arithmetic API contract:
+
+- `uri`
+- `mode`
+- `data.operation`
+- `data.operands`
+
+Recommended:
+
+- `data.profile`
 
 Expected API response envelope from the delayed arithmetic service:
 

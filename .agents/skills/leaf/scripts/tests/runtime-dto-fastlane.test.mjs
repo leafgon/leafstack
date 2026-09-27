@@ -94,7 +94,10 @@ test("runtime-dto-fastlane returns compact success summary", async () => {
     const output = JSON.parse(result.stdout);
     assert.equal(output.mode, "runtime-dto-fastlane");
     assert.equal(output.pass, true);
+    assert.equal(output.completion.readyToSubmit, true);
+    assert.equal(output.completion.stopNow, true);
     assert.equal(output.issueCount, 0);
+    assert.ok(Array.isArray(output.nextCommands));
     assert.equal(output.preflight.steps?.smoke?.output?.OUT1, 12);
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
@@ -135,6 +138,7 @@ test("runtime-dto-fastlane returns diagnose summary on runtime failure", async (
     const output = JSON.parse(result.stdout);
     assert.equal(output.mode, "runtime-dto-fastlane");
     assert.equal(output.pass, false);
+    assert.equal(output.completion.readyToSubmit, false);
     assert.equal(output.preflight.diagnostics.refnode, "REQ_HTTP");
     const issueCodes = output.preflight.diagnostics.issues.map((entry) => entry.code);
     assert.ok(issueCodes.includes("leaflisp_expected_hashmap_got_number"));

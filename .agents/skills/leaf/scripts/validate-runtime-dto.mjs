@@ -36,15 +36,22 @@ const parsed = JSON.parse(await readFile(options.graph, "utf8"));
 const graph = extractGraph(parsed);
 const validation = validateRuntimeDtoGraph(graph);
 
+const defaultNextAction = validation.pass
+  ? "Runtime DTO shape is valid. Run preflight-runtime-dto.mjs for execution checks."
+  : "Fix runtime DTO shape first, then rerun validate-runtime-dto.mjs and preflight-runtime-dto.mjs.";
+
 const output = {
   mode: "validate-runtime-dto",
   graphPath: options.graph,
   pass: validation.pass,
+  shapeClass: validation.shapeClass,
+  failureCode: validation.failureCode,
   declarativeShape: validation.declarativeShape,
   nodeCount: validation.nodeCount,
   edgeCount: validation.edgeCount,
   problems: validation.problems,
   warnings: validation.warnings,
+  nextAction: defaultNextAction,
 };
 
 console.log(JSON.stringify(output, null, 2));

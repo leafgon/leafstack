@@ -49,6 +49,13 @@ export const issueCatalog = [
     action: "Ensure operand vectors are populated in the expected order and length before indexing.",
   },
   {
+    code: "leaflisp_unsupported_tokens",
+    pattern: /\b\(list\b|\b\(vector\b|\b\(array\b|\binport2\b|unsupported token/i,
+    severity: "error",
+    meaning: "Leaflisp expression contains unsupported dialect tokens.",
+    action: "Use LEAFlisp core forms only. Run preflight-runtime-dto.mjs --diagnose to catch token issues before smoke execution.",
+  },
+  {
     code: "leaflisp_null_startswith",
     pattern: /Cannot read properties of null \(reading 'startsWith'\)|Cannot read properties of null \(reading \"startsWith\"\)/i,
     severity: "error",
@@ -82,6 +89,20 @@ export const issueCatalog = [
     severity: "error",
     meaning: "Runtime process exited without valid output payload.",
     action: "Check stderr crash trace and run `run-runtime-dto-smoke.mjs` with the same graph/input.",
+  },
+  {
+    code: "runtime_dto_shape_invalid",
+    pattern: /declarative schema|mixed declarative and runtime DTO|top-level edges array|runtime DTO requires nested nodes\[\]\.out_edges/i,
+    severity: "error",
+    meaning: "Artifact shape does not satisfy runtime DTO transport contract.",
+    action: "Run validate-runtime-dto.mjs and convert artifact to canonical runtime DTO shape before execution.",
+  },
+  {
+    code: "http_contract_missing_required_fields",
+    pattern: /http-request-source-missing-required-token|http-request-source-missing-http-request-bottle|http-parse-target-missing-result-read/i,
+    severity: "error",
+    meaning: "HTTP request/parse contract is incomplete for leafelement(http).",
+    action: "Ensure request bottle has :uri/:mode/:data/:operation/:operands and parser unwraps _content then reads :result.",
   },
 ];
 

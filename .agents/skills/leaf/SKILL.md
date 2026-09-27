@@ -37,6 +37,9 @@ Run the environment survey before mutations when needed:
 - Read [references/offline-validation.md](references/offline-validation.md) when validating task-pack contract DAG edges and acceptance vectors for offline authored graphs.
 - Read [references/runtime-dto-authoring-kit.md](references/runtime-dto-authoring-kit.md) when authoring executable runtime DTO graph fixtures and avoiding declarative-schema drift.
 - Read [references/runtime-dto-payload-contracts.md](references/runtime-dto-payload-contracts.md) for general runtime DTO payload contracts, including decoded base64 node/edge shapes and the reusable JSON template.
+- Read [references/runtime-dto-submission-contract.md](references/runtime-dto-submission-contract.md) for strict accepted/rejected artifact-shape rules and completion gates.
+- Read [references/leaflisp-gotchas.md](references/leaflisp-gotchas.md) before writing join-heavy `leaflisp`, especially when multiple edges feed one node.
+- Read [references/bounded-debug-protocol.md](references/bounded-debug-protocol.md) to keep runtime triage bounded and token-efficient.
 - Re-check `data-workflows.md` and `leaflisp.md` for version-qualified runtime caveats (for example `leafspell("{*}")` dispatch contract, `leaflabel("?<name>")` URL parsing, and strict-boolean LEAFlisp `if` conditions).
 - Read [references/leafelements.md](references/leafelements.md) before choosing or configuring a `leafelement`, including `http` request/response bottle shape and browser CORS requirements.
 - Read [references/spa-pattern.md](references/spa-pattern.md) before authoring or changing a browser-rendered single-page application, including its HTML host contract, assets, navigation, or release strategy.

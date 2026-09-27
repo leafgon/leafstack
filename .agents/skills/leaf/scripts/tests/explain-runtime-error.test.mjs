@@ -53,6 +53,19 @@ test("explain-runtime-error detects by-operation profile key mismatches", async 
   assert.ok(codes.includes("operation_not_found"));
 });
 
+test("explain-runtime-error classifies runtime DTO shape-contract drift", async () => {
+  const result = await run([
+    "--text",
+    "graph payload uses top-level edges array; runtime DTO requires nested nodes[].out_edges payloads",
+  ]);
+
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+
+  const codes = output.issues.map((entry) => entry.code);
+  assert.ok(codes.includes("runtime_dto_shape_invalid"));
+});
+
 test("explain-runtime-error classifies common leaflisp shape mismatch errors", async () => {
   const result = await run([
     "--text",

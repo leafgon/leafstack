@@ -71,6 +71,23 @@ const declarativeFixture = {
   },
 };
 
+const customNodesEdgesFixture = {
+  domain: "example",
+  appid: "custom-shape",
+  nodes: [
+    {
+      id: "IN1",
+      leafnodetype: "leafinflowport",
+    },
+  ],
+  edges: [
+    {
+      source: "IN1",
+      target: "OUT1",
+    },
+  ],
+};
+
 test("validate-runtime-dto passes for transport DTO graph", async () => {
   const temporaryDirectory = await mkdtemp(join(skillDirectory, ".validate-runtime-dto-test-"));
   try {
@@ -82,6 +99,7 @@ test("validate-runtime-dto passes for transport DTO graph", async () => {
 
     const output = JSON.parse(result.stdout);
     assert.equal(output.pass, true);
+    assert.equal(output.shapeClass, "runtime-dto");
     assert.equal(output.nodeCount, 2);
     assert.equal(output.edgeCount, 1);
     assert.deepEqual(output.problems, []);
@@ -101,8 +119,29 @@ test("validate-runtime-dto rejects declarative graph shape", async () => {
 
     const output = JSON.parse(result.stdout);
     assert.equal(output.pass, false);
+    assert.equal(output.shapeClass, "declarative");
+    assert.equal(output.failureCode, "declarative-shape");
     assert.equal(output.declarativeShape, true);
     assert.ok(output.problems.some((entry) => entry.includes("declarative")));
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("validate-runtime-dto classifies custom nodes+edges shape", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".validate-runtime-dto-test-"));
+  try {
+    const graphPath = join(temporaryDirectory, "graph.json");
+    await writeFile(graphPath, `${JSON.stringify(customNodesEdgesFixture, null, 2)}\n`, "utf8");
+
+    const result = await run(["--graph", graphPath]);
+    assert.equal(result.status, 1, result.stderr);
+
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.pass, false);
+    assert.equal(output.shapeClass, "custom-nodes-edges");
+    assert.equal(output.failureCode, "custom-graph-shape");
+    assert.ok(output.problems.some((entry) => entry.includes("top-level edges array")));
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }

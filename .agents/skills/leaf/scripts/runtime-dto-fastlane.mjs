@@ -135,12 +135,14 @@ try {
   const output = {
     mode: "runtime-dto-fastlane",
     pass: Boolean(preflight?.pass),
+    completion: preflight?.completion ?? null,
     graphPath: options.graph,
     input: { IN1: options.in1 },
     checks: Array.isArray(preflight?.checks) ? preflight.checks : [],
     issueCount: issues.length,
     topIssue: issues[0] ?? null,
     nextActions: issues.map((issue) => issue.action).filter(Boolean).slice(0, 3),
+    nextCommands: Array.isArray(preflight?.nextCommands) ? preflight.nextCommands.slice(0, 2) : [],
     diagnostics: preflight?.diagnostics ?? null,
     preflight,
   };
@@ -159,12 +161,14 @@ try {
         const output = {
           mode: "runtime-dto-fastlane",
           pass: Boolean(preflight?.pass),
+          completion: preflight?.completion ?? null,
           graphPath: options.graph,
           input: { IN1: options.in1 },
           checks: Array.isArray(preflight?.checks) ? preflight.checks : [],
           issueCount: issues.length,
           topIssue: issues[0] ?? null,
           nextActions: issues.map((issue) => issue.action).filter(Boolean).slice(0, 3),
+          nextCommands: Array.isArray(preflight?.nextCommands) ? preflight.nextCommands.slice(0, 2) : [],
           diagnostics: preflight?.diagnostics ?? null,
           preflight,
         };
@@ -198,12 +202,27 @@ try {
   const output = {
     mode: "runtime-dto-fastlane",
     pass: false,
+    completion: {
+      readyToSubmit: false,
+      stopNow: false,
+      reason: "Fastlane could not complete preflight; inspect issueCode and rerun with diagnose.",
+    },
     graphPath: options.graph,
     input: { IN1: options.in1 },
     issueCode: summary.issueCode,
     refnode: summary.refnode,
     message: summary.message,
     nextAction: summary.nextAction,
+    nextCommands: [
+      [
+        "node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs",
+        `--graph ${options.graph}`,
+        `--in1 ${options.in1}`,
+        `--out-key ${options.outKey}`,
+        `--out-kind ${options.outKind}`,
+        "--diagnose",
+      ].join(" "),
+    ],
     issues: summary.issues,
   };
 
