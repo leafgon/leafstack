@@ -6,7 +6,7 @@ import { encodeBase64Json } from "./lib/runtime-dto.mjs";
 
 const usage = () => {
   console.error(
-    "usage: scaffold-runtime-dto.mjs --out <graph.json> [--domain <domain>] [--appid <appid>] [--endpoint <url>] [--profile-default <profile-id>] [--operation add|subtract|multiply|divide|power] [--constant <number>] [--operation-id <id: legacy optional>]",
+    "usage: scaffold-runtime-dto.mjs --out <graph.json> [--domain <domain>] [--appid <appid>] [--endpoint <url>] [--profile-default <profile-id>] [--operation add|subtract|multiply|divide|power] [--constant <number>]",
   );
 };
 
@@ -20,7 +20,6 @@ const parseArgs = (argv) => {
     "--profile-default",
     "--operation",
     "--constant",
-    "--operation-id",
   ]);
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -52,7 +51,6 @@ const parseArgs = (argv) => {
     profileDefault: String(options["profile-default"] ?? "profile-001"),
     operation,
     constant,
-    operationId: options["operation-id"] === undefined ? null : String(options["operation-id"]),
   };
 };
 
@@ -107,7 +105,6 @@ try {
 
 const requestDataEntries = [
   `:profile "${options.profileDefault}"`,
-  ...(options.operationId ? [`:operationId "${options.operationId}"`] : []),
   `:operation "${options.operation}"`,
   `:operands [inport ${options.constant}]`,
 ];
@@ -185,7 +182,6 @@ console.log(
       appid: options.appid,
       operation: options.operation,
       constant: options.constant,
-      ...(options.operationId ? { operationId: options.operationId } : {}),
       nodeCount: graph.nodes.length,
       edgeCount: graph.nodes.reduce((count, current) => count + current.out_edges.length, 0),
     },

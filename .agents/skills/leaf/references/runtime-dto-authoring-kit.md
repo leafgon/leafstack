@@ -56,9 +56,6 @@ node .agents/skills/leaf/scripts/scaffold-runtime-dto.mjs \
   --appid runtime-dto-http-arith \
   --operation add \
   --constant 2
-
-`--operation-id` remains available for legacy `by-operation-id` server mode, but
-the default contract uses `profile + operation + operands`.
 ```
 
 The scaffold wires:
@@ -130,7 +127,8 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   (decoded `leaf.logic.type` does not match executable expectation).
 - `OPERATION_NOT_FOUND` indicates the operation key is not configured in the
   selected by-operation profile.
-- `OPERATION_ID_NOT_FOUND` is a legacy by-operation-id mode mismatch.
+- `OPERATION_ID_NOT_FOUND` indicates the request still sends deprecated
+  `operationId`; use by-operation payloads only.
 
 Use the runtime explainer to classify common stderr signatures and (optionally)
 attach runtime DTO diagnostics:

@@ -50,8 +50,6 @@ test("scaffold-runtime-dto emits a valid runtime DTO template", async () => {
       "multiply",
       "--constant",
       "3",
-      "--operation-id",
-      "op-99",
     ]);
 
     assert.equal(scaffoldResult.status, 0, scaffoldResult.stderr);
@@ -92,6 +90,25 @@ test("scaffold-runtime-dto omits operationId by default", async () => {
     const requestExpression = await readRequestExpression(outputPath);
     assert.ok(requestExpression.includes(':operation "add"'));
     assert.ok(!requestExpression.includes(":operationId"));
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("scaffold-runtime-dto rejects removed --operation-id flag", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".scaffold-runtime-dto-test-"));
+  const outputPath = join(temporaryDirectory, "runtime-dto-invalid.json");
+
+  try {
+    const scaffoldResult = await runScript(scaffoldScript, [
+      "--out",
+      outputPath,
+      "--operation-id",
+      "obsolete-op-id",
+    ]);
+
+    assert.equal(scaffoldResult.status, 2);
+    assert.ok(scaffoldResult.stderr.includes("invalid argument: --operation-id"));
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }

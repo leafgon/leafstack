@@ -66,3 +66,23 @@ test("runtime-dto-kit scaffolds and validates runtime DTO with --skip-smoke", as
     await rm(temporaryDirectory, { recursive: true, force: true });
   }
 });
+
+test("runtime-dto-kit rejects removed --operation-id flag", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".runtime-dto-kit-test-"));
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  try {
+    const result = await run([
+      "--out",
+      graphPath,
+      "--operation-id",
+      "obsolete-op-id",
+      "--skip-smoke",
+    ]);
+
+    assert.equal(result.status, 2);
+    assert.ok(result.stderr.includes("invalid argument: --operation-id"));
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});

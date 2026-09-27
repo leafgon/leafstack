@@ -61,11 +61,6 @@ Use a bottle request into `leafelement(http)`:
 }
 ```
 
-Legacy compatibility note:
-
-- In legacy `by-operation-id` server mode, `operationId` may be provided as an
-  optional field.
-
 Expected API response envelope from the delayed arithmetic service:
 
 ```json

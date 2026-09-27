@@ -58,9 +58,9 @@ export const issueCatalog = [
   {
     code: "operation_id_not_found",
     pattern: /OPERATION_ID_NOT_FOUND/i,
-    severity: "warning",
-    meaning: "Legacy by-operation-id mode did not find `operationId` in selected latency profile.",
-    action: "Either provide profile-mapped operation IDs in legacy mode, or switch API/server to by-operation mode.",
+    severity: "error",
+    meaning: "Arithmetic API rejected an obsolete request payload that depends on `operationId`.",
+    action: "Use by-operation payloads only: `{ profile, operation, operands }` and remove `operationId`.",
   },
   {
     code: "profile_not_found",
