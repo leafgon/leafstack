@@ -5,6 +5,12 @@ Use this guide when you need a LEAF graph artifact that runs directly with
 
 For generalized node/edge payload contracts and decoded base64 shapes, read
 [runtime-dto-payload-contracts.md](runtime-dto-payload-contracts.md).
+For strict accepted/rejected runtime artifact shapes, read
+[runtime-dto-submission-contract.md](runtime-dto-submission-contract.md).
+For a short end-to-end command path, read
+[runtime-dto-quickstart.md](runtime-dto-quickstart.md).
+For dialect pitfalls, read [leaflisp-gotchas.md](leaflisp-gotchas.md).
+For bounded triage flow, read [bounded-debug-protocol.md](bounded-debug-protocol.md).
 
 ## What this kit guarantees
 
@@ -63,6 +69,39 @@ The scaffold wires:
 ```text
 IN1 -> REQ_HTTP(leaflisp) -> HTTP_ARITH(leafelement http) -> PARSE_HTTP(leaflisp) -> OUT1
 ```
+
+Use a nil-safe parse node shape for HTTP responses:
+
+```clojure
+(do
+  (def payloadzero (if (isbottle inport) (get inport :_content) inport))
+  (def payload (if (isbottle payloadzero) (get payloadzero :_content) payloadzero))
+  (def result (get payload :result))
+  (if (isnil result) nil result))
+```
+
+Avoid these anti-patterns in parser nodes:
+
+- `(parse (get payload :result))` without checking for missing result;
+- direct `pair` indexing (`(get pair 0)` / `(get pair 1)`) without nil guards.
+- shell-template strings inside LEAFlisp source (for example
+  `${ARITHMETIC_PROFILE_ID:-profile-001}`), which remain literal at runtime.
+
+## Deterministic multi-input joins (important)
+
+When multiple edges enter one `leaflisp` node, `inport` is an array of values,
+but index ordering is not a reliable provenance contract for upstream edges.
+
+Use one of these deterministic patterns:
+
+1. Bottle upstream payloads with semantic names and screen by `:_bname` in
+   downstream `leaflisp`.
+2. Prefer `leafmixflow` as a merge barrier: feed bottled upstream values into
+   `leafmixflow`, then pass the single merged output to `leaflisp` and read by
+   key via `get`.
+
+Avoid positional assumptions such as `(get inport 0)` / `(get inport 1)` for
+multi-edge dependency joins.
 
 ## 2) Validate runtime DTO shape
 
@@ -129,6 +168,8 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   selected by-operation profile.
 - `OPERATION_ID_NOT_FOUND` indicates the request still sends deprecated
   `operationId`; use by-operation payloads only.
+- `Cannot read properties of null (reading 'startsWith')` usually indicates a
+  parser node attempted string parse/coercion on missing HTTP result data.
 
 Use the runtime explainer to classify common stderr signatures and (optionally)
 attach runtime DTO diagnostics:
@@ -171,3 +212,6 @@ For generated artifacts, require this order before submission:
 
 This keeps runtime fixture quality high without reverse-engineering bundled
 GhostOS internals.
+
+Stop immediately when preflight reports
+`completion.readyToSubmit=true` and `completion.stopNow=true`.

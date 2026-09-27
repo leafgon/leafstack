@@ -22,7 +22,7 @@
     {
       "uuid": "REQ_HTTP",
       "leafnodetype": "leaflisp",
-      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmbGlzcCIsImFyZ3MiOnsibGlzcGV4cHJlc3Npb24iOiIoZG8gKGRlZiByZXEgezp1cmkgXCJodHRwOi8vMTI3LjAuMC4xOjgwODAvdjEvb3BlcmF0aW9uc1wiIDptb2RlIFwicG9zdFwiIDpoZWFkZXIgezpjb250ZW50LXR5cGUgXCJhcHBsaWNhdGlvbi9qc29uXCJ9IDpkYXRhIHs6cHJvZmlsZSBcInByb2ZpbGUtMDAxXCIgOm9wZXJhdGlvbklkIFwib3AtMDFcIiA6b3BlcmF0aW9uIFwiYWRkXCIgOm9wZXJhbmRzIFtpbnBvcnQgMl19fSkgKGJvdHRsZSBcImh0dHAtcmVxdWVzdFwiIHJlcSkpIn19LCJhcHBkYXRhIjp7InBvc2l0aW9uIjp7IngiOjI4MCwieSI6MTIwfX19fQ==",
+      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmbGlzcCIsImFyZ3MiOnsibGlzcGV4cHJlc3Npb24iOiIoZG8gKGRlZiByZXEgezp1cmkgXCJodHRwOi8vMTI3LjAuMC4xOjgwODAvdjEvb3BlcmF0aW9uc1wiIDptb2RlIFwicG9zdFwiIDpoZWFkZXIgezpjb250ZW50LXR5cGUgXCJhcHBsaWNhdGlvbi9qc29uXCJ9IDpkYXRhIHs6cHJvZmlsZSBcInByb2ZpbGUtMDAxXCIgOm9wZXJhdGlvbiBcImFkZFwiIDpvcGVyYW5kcyBbaW5wb3J0IDJdfX0pIChib3R0bGUgXCJodHRwLXJlcXVlc3RcIiByZXEpKSJ9fSwiYXBwZGF0YSI6eyJwb3NpdGlvbiI6eyJ4IjoyODAsInkiOjEyMH19fX0=",
       "out_edges": [
         {
           "uuid": "E02_REQ_TO_HTTP",
@@ -73,7 +73,7 @@
     {
       "uuid": "PARSE_HTTP",
       "leafnodetype": "leaflisp",
-      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmbGlzcCIsImFyZ3MiOnsibGlzcGV4cHJlc3Npb24iOiIoZG8gKGRlZiBwYXlsb2FkIChpZiAoaXNib3R0bGUgaW5wb3J0KSAoZ2V0IGlucG9ydCA6X2NvbnRlbnQpIGlucG9ydCkpIChnZXQgcGF5bG9hZCA6cmVzdWx0KSkifX0sImFwcGRhdGEiOnsicG9zaXRpb24iOnsieCI6OTQwLCJ5IjoxMjB9fX19",
+      "data": "eyJsZWFmIjp7ImFwaSI6ImJyZWV6eWZvcmVzdCIsImxvZ2ljIjp7InR5cGUiOiJsZWFmbGlzcCIsImFyZ3MiOnsibGlzcGV4cHJlc3Npb24iOiIoZG8gKGRlZiBwYXlsb2FkemVybyAoaWYgKGlzYm90dGxlIGlucG9ydCkgKGdldCBpbnBvcnQgOl9jb250ZW50KSBpbnBvcnQpKSAoZGVmIHBheWxvYWQgKGlmIChpc2JvdHRsZSBwYXlsb2FkemVybykgKGdldCBwYXlsb2FkemVybyA6X2NvbnRlbnQpIHBheWxvYWR6ZXJvKSkgKGRlZiByZXN1bHQgKGdldCBwYXlsb2FkIDpyZXN1bHQpKSAoaWYgKGlzbmlsIHJlc3VsdCkgbmlsIHJlc3VsdCkpIn19LCJhcHBkYXRhIjp7InBvc2l0aW9uIjp7IngiOjk0MCwieSI6MTIwfX19fQ==",
       "out_edges": [
         {
           "uuid": "E05_PARSE_TO_JOIN",

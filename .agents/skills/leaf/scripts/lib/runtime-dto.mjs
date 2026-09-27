@@ -36,6 +36,26 @@ export const isDeclarativeGraphShape = (graph) => {
   );
 };
 
+export const classifyRuntimeDtoGraphShape = (graph) => {
+  if (!graph || typeof graph !== "object" || Array.isArray(graph)) return "invalid-payload";
+
+  const hasNodesArray = Array.isArray(graph.nodes);
+  const hasEdgesArray = Array.isArray(graph.edges);
+  const declarative = isDeclarativeGraphShape(graph);
+
+  if (declarative && hasNodesArray) {
+    const hasRuntimeNode = graph.nodes.some(
+      (node) => node && typeof node === "object" && typeof node.uuid === "string" && Object.hasOwn(node, "leafnodetype"),
+    );
+    if (hasRuntimeNode) return "mixed-runtime-declarative";
+  }
+
+  if (declarative) return "declarative";
+  if (hasNodesArray && hasEdgesArray) return "custom-nodes-edges";
+  if (hasNodesArray) return "runtime-dto";
+  return "unknown-object";
+};
+
 const validateNodeBase = (node, index, problems) => {
   if (!node || typeof node !== "object" || Array.isArray(node)) {
     problems.push(`nodes[${index}] must be an object`);
@@ -94,6 +114,7 @@ const validateEdge = ({ edge, nodeUuid, nodeIndex, edgeIndex, knownNodeIds, prob
 export const validateRuntimeDtoGraph = (graph) => {
   const problems = [];
   const warnings = [];
+  const shapeClass = classifyRuntimeDtoGraphShape(graph);
 
   if (!graph || typeof graph !== "object" || Array.isArray(graph)) {
     return {
@@ -103,12 +124,22 @@ export const validateRuntimeDtoGraph = (graph) => {
       nodeCount: 0,
       edgeCount: 0,
       declarativeShape: false,
+      shapeClass,
+      failureCode: "graph-payload-invalid",
     };
   }
 
   const declarativeShape = isDeclarativeGraphShape(graph);
   if (declarativeShape) {
     problems.push("graph payload appears to be declarative schema (kind/inputs/outputs/id+element), not runtime DTO");
+  }
+
+  if (shapeClass === "mixed-runtime-declarative") {
+    problems.push("graph payload mixes declarative and runtime DTO fields; submit one canonical runtime DTO artifact only");
+  }
+
+  if (shapeClass === "custom-nodes-edges") {
+    problems.push("graph payload uses top-level edges array; runtime DTO requires nested nodes[].out_edges payloads");
   }
 
   if (typeof graph.domain !== "string" || graph.domain.length === 0) {
@@ -128,6 +159,8 @@ export const validateRuntimeDtoGraph = (graph) => {
       nodeCount: 0,
       edgeCount: 0,
       declarativeShape,
+      shapeClass,
+      failureCode: "graph-nodes-missing",
     };
   }
 
@@ -177,13 +210,25 @@ export const validateRuntimeDtoGraph = (graph) => {
     }
   }
 
+  const pass = problems.length === 0;
+
   return {
-    pass: problems.length === 0,
+    pass,
     problems,
     warnings,
     nodeCount: graph.nodes.length,
     edgeCount,
     declarativeShape,
+    shapeClass,
+    failureCode: pass
+      ? null
+      : (declarativeShape
+        ? "declarative-shape"
+        : (shapeClass === "custom-nodes-edges"
+          ? "custom-graph-shape"
+          : (shapeClass === "mixed-runtime-declarative"
+            ? "mixed-graph-shape"
+            : "runtime-dto-invalid"))),
   };
 };
 
@@ -233,6 +278,7 @@ export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
     outKey,
     nodeCount: 0,
     httpNodeCount: 0,
+    leaflispNodeCount: 0,
   };
 
   if (!graph || typeof graph !== "object" || !Array.isArray(graph.nodes)) {
@@ -300,6 +346,53 @@ export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
   }
 
   for (const [uuid, meta] of nodeMetaByUuid.entries()) {
+    if (meta.decodeError) continue;
+
+    if (meta.leafnodetype === "leaflisp" && meta.logic?.type === "leaflisp") {
+      facts.leaflispNodeCount += 1;
+      const incoming = incomingByTarget.get(uuid) ?? [];
+      const expression = String(meta.logic?.args?.lispexpression ?? "");
+
+      if (/\$\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\}/.test(expression)) {
+        issues.push({
+          code: "leaflisp-literal-shell-template",
+          message: `leaflisp node '${uuid}' contains shell-template syntax (\${...}); LEAFlisp does not expand shell env templates at runtime`,
+        });
+      }
+
+      for (const rule of [
+        { code: "leaflisp-unsupported-token-list", pattern: /\(list\b/, token: "(list ...)" },
+        { code: "leaflisp-unsupported-token-vector", pattern: /\(vector\b/, token: "(vector ...)" },
+        { code: "leaflisp-unsupported-token-array", pattern: /\(array\b/, token: "(array ...)" },
+        { code: "leaflisp-unsupported-token-inport2", pattern: /\binport2\b/, token: "inport2" },
+      ]) {
+        if (!rule.pattern.test(expression)) continue;
+        issues.push({
+          code: rule.code,
+          message: `leaflisp node '${uuid}' uses unsupported token ${rule.token}; use LEAFlisp core forms and explicit provenance-safe bottle/map shaping`,
+        });
+      }
+
+      if (incoming.length > 1) {
+        const usesIndexAccess = /\(get\s+(?:inport|pair)\s+\d+\)/.test(expression);
+        const readsBottleName = /:_bname|\(get\s+[^)]+\s+:_bname\)/.test(expression);
+
+        if (usesIndexAccess) {
+          issues.push({
+            code: "leaflisp-multi-input-index-access",
+            message: `leaflisp node '${uuid}' receives multiple inputs but indexes positional inport entries; encode provenance in bottles and resolve by bottle name (or merge through leafmixflow before parsing)`,
+          });
+        }
+
+        if (!readsBottleName) {
+          warnings.push({
+            code: "leaflisp-multi-input-provenance-unclear",
+            message: `leaflisp node '${uuid}' receives ${incoming.length} upstream edges with no bottle-name screening; use bottled upstream payloads and/or leafmixflow key-value merge for deterministic provenance`,
+          });
+        }
+      }
+    }
+
     const logicType = meta.logic?.type;
     const elementName = meta.logic?.args?.elementname;
     if (meta.leafnodetype !== "leafelement" || logicType !== "leafelement" || elementName !== "http") {
@@ -349,13 +442,27 @@ export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
         });
       }
 
-      for (const token of [":uri", ":operation", ":operands"]) {
+      if (/\$\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\}/.test(expression)) {
+        issues.push({
+          code: "http-request-source-literal-shell-template",
+          message: `request source '${entry.sourceUuid}' contains literal shell-template syntax (\${...}); set profile explicitly in payload data and avoid shell substitution syntax in LEAFlisp`,
+        });
+      }
+
+      for (const token of [":uri", ":mode", ":data", ":operation", ":operands"]) {
         if (!expression.includes(token)) {
-          warnings.push({
-            code: "http-request-source-missing-token",
+          issues.push({
+            code: "http-request-source-missing-required-token",
             message: `request source '${entry.sourceUuid}' expression does not contain ${token}`,
           });
         }
+      }
+
+      if (!expression.includes(":profile")) {
+        warnings.push({
+          code: "http-request-source-missing-profile-token",
+          message: `request source '${entry.sourceUuid}' expression does not contain :profile (runtime should rely on ARITHMETIC_PROFILE_ID fallback policy)`,
+        });
       }
     }
 
@@ -400,6 +507,29 @@ export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
         issues.push({
           code: "http-parse-target-missing-result-read",
           message: `parse node '${targetUuid}' should extract :result from HTTP response`,
+        });
+      }
+
+      if (/\bparse\s+\(get\s+payload\s+:result\)/.test(parseExpression)) {
+        issues.push({
+          code: "http-parse-target-unsafe-result-parse",
+          message: `parse node '${targetUuid}' uses (parse (get payload :result)) without nil-safe guard; unwrap bottle/content and guard missing result before parse`,
+        });
+      }
+
+      if (!parseExpression.includes(":_content")) {
+        warnings.push({
+          code: "http-parse-target-missing-content-unwrap",
+          message: `parse node '${targetUuid}' does not reference :_content; confirm bottle/content unwrapping is intentional`,
+        });
+      }
+
+      const indexesPairInputs = /\(get\s+pair\s+0\)|\(get\s+pair\s+1\)/.test(parseExpression);
+      const hasPairNilGuards = /\(isnil\s+pair\)|\(isnil\s+first\)|\(isnil\s+second\)/.test(parseExpression);
+      if (indexesPairInputs && !hasPairNilGuards) {
+        issues.push({
+          code: "http-parse-target-unchecked-pair-assumption",
+          message: `parse node '${targetUuid}' indexes pair[0/1] without nil guards; do not assume both async inputs arrive together`,
         });
       }
     }

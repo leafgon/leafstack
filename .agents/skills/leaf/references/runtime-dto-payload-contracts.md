@@ -3,6 +3,13 @@
 Use this reference when authoring LEAF runtime DTO graphs that execute with
 `executeLEAFGraph` and when validating base64 payloads for common node types.
 
+Also read:
+
+- [runtime-dto-submission-contract.md](runtime-dto-submission-contract.md)
+- [runtime-dto-quickstart.md](runtime-dto-quickstart.md)
+- [leaflisp-gotchas.md](leaflisp-gotchas.md)
+- [bounded-debug-protocol.md](bounded-debug-protocol.md)
+
 This document is intentionally general-purpose (not benchmark-specific).
 
 ## Transport DTO contract (top-level)
@@ -61,6 +68,20 @@ Use a bottle request into `leafelement(http)`:
 }
 ```
 
+Required request keys for arithmetic API contract:
+
+- `uri`
+- `mode`
+- `data.operation`
+- `data.operands`
+
+Recommended:
+
+- `data.profile`
+
+Do not embed shell templates such as `${ARITHMETIC_PROFILE_ID:-profile-001}` in
+LEAFlisp expression strings; LEAFlisp does not perform shell expansion.
+
 Expected API response envelope from the delayed arithmetic service:
 
 ```json
@@ -73,6 +94,19 @@ Expected downstream envelope from `leafelement(http)`:
 
 - Success: `_bname: "elementio"` and JSON response in `_content`.
 - Failure: `_bname: "elementio"` and `_content: null`.
+
+Recommended parse flow for HTTP result extraction (`leaflisp`):
+
+```clojure
+(do
+  (def payloadzero (if (isbottle inport) (get inport :_content) inport))
+  (def payload (if (isbottle payloadzero) (get payloadzero :_content) payloadzero))
+  (def result (get payload :result))
+  (if (isnil result) nil result))
+```
+
+Do not parse or index optimistic pair shapes before nil checks. In particular,
+avoid `(parse (get payload :result))` and unguarded `(get pair 0|1)` forms.
 
 ## Canonical template JSON
 
@@ -119,7 +153,7 @@ It contains one coherent HTTP data path plus contract examples for
     "logic": {
       "type": "leaflisp",
       "args": {
-        "lispexpression": "(do (def payload (if (isbottle inport) (get inport :_content) inport)) (get payload :result))"
+        "lispexpression": "(do (def payloadzero (if (isbottle inport) (get inport :_content) inport)) (def payload (if (isbottle payloadzero) (get payloadzero :_content) payloadzero)) (def result (get payload :result)) (if (isnil result) nil result))"
       }
     },
     "appdata": { "position": { "x": 940, "y": 120 } }
@@ -175,6 +209,48 @@ It contains one coherent HTTP data path plus contract examples for
   }
 }
 ```
+
+For deterministic provenance-aware joins, feed an array of bottled values into
+`leafmixflow` and consume the merged map in downstream `leaflisp`.
+
+Conceptual pattern:
+
+```clojure
+; upstream leaflisp nodes
+(bottle "sum-branch" sumValue)
+(bottle "pow-branch" powValue)
+
+; after leafmixflow(dictionary), downstream leaflisp receives map-like payload
+(do
+  (def merged (if (isbottle inport) (get inport :_content) inport))
+  (def lhs (get merged :sum-branch))
+  (def rhs (get merged :pow-branch))
+  (+ lhs rhs))
+```
+
+Do not rely on positional multi-input reads (`(get inport 0/1)`) to identify
+which upstream edge produced which value.
+
+## Node behavior quick matrix
+
+| Node type | Use for | Input expectation | Output expectation | Common mistake |
+|---|---|---|---|---|
+| `leafgateflow` | Admit only named bottle channels | bottle or map-like flow with key labels | gated stream for matching key | treating it as value transformer |
+| `leafmixflow` | Deterministic join/merge of upstream values | multiple bottled or keyed upstream values | merged dictionary-like payload | assuming positional edge order |
+| `leafchronosflow` | time/scheduling boundary in flow graph | upstream event/value | deferred/timed emission | using it as arithmetic node |
+| `leafspell` | invoke named reusable spell | invocation payload and connected lambda/data edges | spell invocation output | spelling mismatch with spelldef |
+| `leafspelldef` | define reusable spell boundary | internal spell graph wiring | exportable spell endpoint | missing callable spell name wiring |
+
+## Minimal spell call/definition wiring
+
+When combining `leafspell` and `leafspelldef`, keep names consistent and
+provide at least one deterministic in->out path inside the spell definition.
+
+Conceptual checklist:
+
+1. `leafspelldef.args.spellname` exactly matches `leafspell.args.spellname`.
+2. Spell graph has a clear entry node and one output path.
+3. Runtime DTO payload for both nodes has canonical `leaf.logic.type` and args.
 
 ### `leafchronosflow`
 

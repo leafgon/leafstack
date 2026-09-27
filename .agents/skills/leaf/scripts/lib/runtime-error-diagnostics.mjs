@@ -39,7 +39,7 @@ export const issueCatalog = [
     pattern: /Type Error! Expected 'HashMap', but got 'Number'/i,
     severity: "error",
     meaning: "Leaflisp map access attempted on a scalar value.",
-    action: "Check bottle/content extraction and ensure map-typed payload before key lookup.",
+    action: "Check bottle/content extraction and provenance merge: for multi-edge joins, bottle upstream payloads and resolve via leafmixflow key-value map before key lookup.",
   },
   {
     code: "leaflisp_vector_index_undefined",
@@ -47,6 +47,27 @@ export const issueCatalog = [
     severity: "error",
     meaning: "Leaflisp indexed a vector position that does not exist.",
     action: "Ensure operand vectors are populated in the expected order and length before indexing.",
+  },
+  {
+    code: "leaflisp_unsupported_tokens",
+    pattern: /\b\(list\b|\b\(vector\b|\b\(array\b|\binport2\b|unsupported token/i,
+    severity: "error",
+    meaning: "Leaflisp expression contains unsupported dialect tokens.",
+    action: "Use LEAFlisp core forms only. Run preflight-runtime-dto.mjs --diagnose to catch token issues before smoke execution.",
+  },
+  {
+    code: "leaflisp_literal_shell_template",
+    pattern: /\$\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\}|literal shell-template syntax/i,
+    severity: "error",
+    meaning: "Leaflisp source includes shell-style variable templates that are not expanded at runtime.",
+    action: "Do not use ${...} template syntax inside LEAFlisp expressions; set request values directly in payload maps.",
+  },
+  {
+    code: "leaflisp_null_startswith",
+    pattern: /Cannot read properties of null \(reading 'startsWith'\)|Cannot read properties of null \(reading \"startsWith\"\)/i,
+    severity: "error",
+    meaning: "Leaflisp attempted string parsing on a null value; usually caused by parsing :result before HTTP payload is ready.",
+    action: "Use nil-safe parser flow: unwrap bottle/content, read :result, guard nil before parse/coercion, and avoid unchecked pair[0/1] assumptions.",
   },
   {
     code: "operation_not_found",
@@ -75,6 +96,34 @@ export const issueCatalog = [
     severity: "error",
     meaning: "Runtime process exited without valid output payload.",
     action: "Check stderr crash trace and run `run-runtime-dto-smoke.mjs` with the same graph/input.",
+  },
+  {
+    code: "runtime_dto_shape_invalid",
+    pattern: /declarative schema|mixed declarative and runtime DTO|top-level edges array|runtime DTO requires nested nodes\[\]\.out_edges/i,
+    severity: "error",
+    meaning: "Artifact shape does not satisfy runtime DTO transport contract.",
+    action: "Run validate-runtime-dto.mjs and convert artifact to canonical runtime DTO shape before execution.",
+  },
+  {
+    code: "noncanonical_leaflisp_data",
+    pattern: /noncanonical-leaflisp-data/i,
+    severity: "error",
+    meaning: "Leaf node payload does not satisfy canonical leaflisp data contract.",
+    action: "Re-encode node data to include canonical leaf.logic payload and rerun validate-runtime-dto.mjs.",
+  },
+  {
+    code: "unsupported_leaf_node_type",
+    pattern: /unsupported leaf node type|unknown leafnodetype|unknown leaf\.logic\.type/i,
+    severity: "error",
+    meaning: "Graph references a leaf node type unsupported by the runtime/tooling context.",
+    action: "Use documented node types and verify nodes[].leafnodetype matches decoded leaf.logic.type.",
+  },
+  {
+    code: "http_contract_missing_required_fields",
+    pattern: /http-request-source-missing-required-token|http-request-source-missing-http-request-bottle|http-parse-target-missing-result-read/i,
+    severity: "error",
+    meaning: "HTTP request/parse contract is incomplete for leafelement(http).",
+    action: "Ensure request bottle has :uri/:mode/:data/:operation/:operands and parser unwraps _content then reads :result.",
   },
 ];
 

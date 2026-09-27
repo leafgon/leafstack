@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { extractGraph, inspectRuntimeDtoNodes, validateRuntimeDtoGraph } from "./lib/runtime-dto.mjs";
-import { classifyRuntimeIssues } from "./lib/runtime-error-diagnostics.mjs";
+import { summarizeRuntimeFailure } from "./lib/runtime-error-diagnostics.mjs";
 
 const usage = () => {
   console.error(
@@ -47,7 +47,8 @@ const stderrText = options.stderr
   ? await readFile(options.stderr, "utf8")
   : String(options.text ?? "");
 
-const issues = classifyRuntimeIssues(stderrText);
+const summary = summarizeRuntimeFailure({ stderr: stderrText });
+const issues = [...summary.issues];
 
 let graphDiagnostics = null;
 if (options.graph) {
@@ -106,6 +107,10 @@ const output = {
   stderrPath: options.stderr,
   graphPath: options.graph,
   issueCount: dedupedIssues.length,
+  issueCode: summary.issueCode,
+  message: summary.message,
+  nextAction: summary.nextAction,
+  refnode: summary.refnode,
   issues: dedupedIssues,
   graphDiagnostics,
 };

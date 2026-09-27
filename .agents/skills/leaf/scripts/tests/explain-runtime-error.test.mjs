@@ -53,6 +53,33 @@ test("explain-runtime-error detects by-operation profile key mismatches", async 
   assert.ok(codes.includes("operation_not_found"));
 });
 
+test("explain-runtime-error classifies runtime DTO shape-contract drift", async () => {
+  const result = await run([
+    "--text",
+    "graph payload uses top-level edges array; runtime DTO requires nested nodes[].out_edges payloads",
+  ]);
+
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+
+  const codes = output.issues.map((entry) => entry.code);
+  assert.ok(codes.includes("runtime_dto_shape_invalid"));
+});
+
+test("explain-runtime-error classifies shell-template misuse and noncanonical payload", async () => {
+  const result = await run([
+    "--text",
+    "request source 'REQ_HTTP' contains literal shell-template syntax (${ARITHMETIC_PROFILE_ID:-profile-001}); noncanonical-leaflisp-data",
+  ]);
+
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+
+  const codes = output.issues.map((entry) => entry.code);
+  assert.ok(codes.includes("leaflisp_literal_shell_template"));
+  assert.ok(codes.includes("noncanonical_leaflisp_data"));
+});
+
 test("explain-runtime-error classifies common leaflisp shape mismatch errors", async () => {
   const result = await run([
     "--text",
@@ -63,6 +90,19 @@ test("explain-runtime-error classifies common leaflisp shape mismatch errors", a
   const output = JSON.parse(result.stdout);
   const issueCodes = output.issues.map((entry) => entry.code);
   assert.ok(issueCodes.includes("leaflisp_expected_vector_got_number"));
+});
+
+test("explain-runtime-error classifies null startsWith parser errors", async () => {
+  const result = await run([
+    "--text",
+    "LEAFlisp error: {refnode: PARSE_MUL_P3_5}: line: 0 - Cannot read properties of null (reading 'startsWith')",
+  ]);
+
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  const issueCodes = output.issues.map((entry) => entry.code);
+  assert.ok(issueCodes.includes("leaflisp_null_startswith"));
+  assert.equal(output.refnode, "PARSE_MUL_P3_5");
 });
 
 test("explain-runtime-error adds graph diagnostics for malformed runtime DTO", async () => {
