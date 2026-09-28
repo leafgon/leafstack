@@ -52,6 +52,10 @@ Stop immediately when output contains:
 - `completion.readyToSubmit=true`
 - `completion.stopNow=true`
 
+Treat this as a smoke/static completion gate unless task-pack contracts were also
+enforced in the same run (for example `--required` and `--vectors` when
+available for the task).
+
 ## Retry budget
 
 Keep retries bounded:

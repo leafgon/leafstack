@@ -152,6 +152,92 @@ test("preflight-runtime-dto fails when output key is missing", async () => {
   }
 });
 
+test("preflight-runtime-dto classifies scalar-root output envelope without sink-key misclassification", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
+  const fakeGhostosDirectory = join(temporaryDirectory, "ghostos");
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  try {
+    await mkdir(join(fakeGhostosDirectory, "src"), { recursive: true });
+    await writeFile(
+      join(fakeGhostosDirectory, "package.json"),
+      `${JSON.stringify({ name: "ghostos", version: ghostosLatest, type: "module" }, null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(fakeGhostosDirectory, "src", "index.core.js"),
+      "export const executeLEAFGraph = async () => 42;\n",
+      "utf8",
+    );
+
+    await writeFile(graphPath, `${JSON.stringify(runtimeFixture, null, 2)}\n`, "utf8");
+
+    const result = await run([
+      "--graph",
+      graphPath,
+      "--out-key",
+      "OUT1",
+      "--ghostos-dir",
+      fakeGhostosDirectory,
+      "--version",
+      ghostosLatest,
+      "--diagnose",
+    ]);
+
+    assert.equal(result.status, 1, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.pass, false);
+    assert.ok(output.checks.includes("output-envelope-nonobject:OUT1"));
+    assert.ok(!output.checks.includes("missing-output-key:OUT1"));
+    assert.equal(output.firstFixRecipe.code, "output-envelope-nonobject:OUT1");
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("preflight-runtime-dto classifies null-root output envelope and avoids missing-output-key sink recipe", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
+  const fakeGhostosDirectory = join(temporaryDirectory, "ghostos");
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  try {
+    await mkdir(join(fakeGhostosDirectory, "src"), { recursive: true });
+    await writeFile(
+      join(fakeGhostosDirectory, "package.json"),
+      `${JSON.stringify({ name: "ghostos", version: ghostosLatest, type: "module" }, null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(fakeGhostosDirectory, "src", "index.core.js"),
+      "export const executeLEAFGraph = async () => null;\n",
+      "utf8",
+    );
+
+    await writeFile(graphPath, `${JSON.stringify(runtimeFixture, null, 2)}\n`, "utf8");
+
+    const result = await run([
+      "--graph",
+      graphPath,
+      "--out-key",
+      "OUT1",
+      "--ghostos-dir",
+      fakeGhostosDirectory,
+      "--version",
+      ghostosLatest,
+      "--diagnose",
+    ]);
+
+    assert.equal(result.status, 1, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.pass, false);
+    assert.ok(output.checks.includes("output-envelope-null:OUT1"));
+    assert.ok(!output.checks.includes("missing-output-key:OUT1"));
+    assert.equal(output.firstFixRecipe.code, "output-envelope-null:OUT1");
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
 test("preflight-runtime-dto diagnose reports runtime classification when smoke execution fails", async () => {
   const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
   const fakeGhostosDirectory = join(temporaryDirectory, "ghostos");
@@ -600,6 +686,175 @@ test("preflight-runtime-dto blocks unsupported leaflisp dialect tokens", async (
     assert.ok(output.checks.includes("static-contract:leaflisp-unsupported-token-list"));
     assert.ok(output.checks.includes("static-contract:leaflisp-unsupported-token-inport2"));
     assert.equal(output.steps.smoke, null);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("preflight-runtime-dto warns on redundant keyed-mix unwrap scaffolds", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  const keyedMixFixture = {
+    domain: "example",
+    appid: "keyed-mix-overunwrap-fixture",
+    nodes: [
+      {
+        uuid: "CONST_A",
+        leafnodetype: "leaflisp",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leaflisp",
+              args: {
+                lispexpression: "3",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E_A",
+            source: { uuid: "CONST_A" },
+            target: { uuid: "BOTTLE_A" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "CONST_B",
+        leafnodetype: "leaflisp",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leaflisp",
+              args: {
+                lispexpression: "5",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E_B",
+            source: { uuid: "CONST_B" },
+            target: { uuid: "BOTTLE_B" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "BOTTLE_A",
+        leafnodetype: "leafbottle",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leafbottle",
+              args: { bottlekey: "arg1" },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E_BA",
+            source: { uuid: "BOTTLE_A" },
+            target: { uuid: "MIX" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "BOTTLE_B",
+        leafnodetype: "leafbottle",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leafbottle",
+              args: { bottlekey: "arg2" },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E_BB",
+            source: { uuid: "BOTTLE_B" },
+            target: { uuid: "MIX" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "MIX",
+        leafnodetype: "leafmixflow",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leafmixflow",
+              args: {
+                mixOperator: "merge",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E_M",
+            source: { uuid: "MIX" },
+            target: { uuid: "JOIN" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "JOIN",
+        leafnodetype: "leaflisp",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leaflisp",
+              args: {
+                lispexpression: "(do (def merged0 (if (isbottle inport) (get inport :_content) inport)) (def merged (if (isbottle merged0) (get merged0 :_content) merged0)) (def a (get merged :arg1)) (def b (get merged :arg2)) (+ a b))",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E_J",
+            source: { uuid: "JOIN" },
+            target: { uuid: "OUT1" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "OUT1",
+        leafnodetype: "leafoutflowport",
+        data: encode({ leaf: { logic: { type: "leafoutflowport", args: {} } } }),
+        out_edges: [],
+      },
+    ],
+  };
+
+  try {
+    await writeFile(graphPath, `${JSON.stringify(keyedMixFixture, null, 2)}\n`, "utf8");
+
+    const result = await run([
+      "--graph",
+      graphPath,
+      "--out-key",
+      "OUT1",
+      "--diagnose",
+    ]);
+
+    assert.equal(result.status, 1, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.staticContract.pass, true);
+    assert.ok(
+      output.staticContract.warnings
+        .map((entry) => entry.code)
+        .includes("leaflisp-keyed-mix-overunwrap"),
+    );
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }

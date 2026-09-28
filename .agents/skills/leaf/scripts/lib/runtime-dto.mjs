@@ -298,6 +298,16 @@ const readsUnsafeParsedHttpResult = (expression) => {
   return false;
 };
 
+const isRedundantKeyedMixUnwrap = (expression) => {
+  const source = String(expression ?? "");
+  if (source.length === 0) return false;
+
+  const unwrapSteps = source.match(/\(if\s+\(isbottle\s+[A-Za-z0-9_-]+\)\s+\(get\s+[A-Za-z0-9_-]+\s+:_content\)\s+[A-Za-z0-9_-]+\)/g) ?? [];
+  if (unwrapSteps.length < 2) return false;
+
+  return /\(get\s+[A-Za-z0-9_-]+\s+:[A-Za-z0-9_-]+\)/.test(source);
+};
+
 export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
   const outKey = typeof options.outKey === "string" && options.outKey.length > 0 ? options.outKey : "OUT1";
   const issues = [];
@@ -452,6 +462,15 @@ export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
             message: `leaflisp node '${uuid}' receives ${incoming.length} upstream edges with no bottle-name screening; use bottled upstream payloads and/or leafmixflow key-value merge for deterministic provenance`,
           });
         }
+      }
+
+      const incomingLeafTypes = incoming.map((entry) => nodeMetaByUuid.get(entry.sourceUuid)?.leafnodetype ?? null);
+      const hasMixflowSource = incomingLeafTypes.some((leafType) => leafType === "leafmixflow");
+      if (hasMixflowSource && isRedundantKeyedMixUnwrap(expression)) {
+        warnings.push({
+          code: "leaflisp-keyed-mix-overunwrap",
+          message: `leaflisp node '${uuid}' reads keyed mixflow data but applies repeated generic bottle/content unwraps; prefer direct keyed reads (for example (get inport :arg1)) unless the local contract requires envelope handling`,
+        });
       }
     }
 

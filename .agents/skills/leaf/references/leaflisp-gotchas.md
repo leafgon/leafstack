@@ -101,6 +101,25 @@ upstream payloads. Consume transformed upstream values explicitly and preserve
 provenance with named bottles/`leafmixflow` when original source values are
 required downstream.
 
+## Avoid keyed-mix over-unwrapping
+
+When a `leaflisp` node consumes keyed output from named-bottle `leafmixflow`,
+avoid redundant generic unwrap scaffolds such as:
+
+```clojure
+(def merged0 (if (isbottle inport) (get inport :_content) inport))
+(def merged (if (isbottle merged0) (get merged0 :_content) merged0))
+(def a (get merged :arg1))
+```
+
+Prefer direct keyed reads unless the upstream contract explicitly sends a bottle
+envelope at that stage:
+
+```clojure
+(def a (get inport :arg1))
+(def b (get inport :arg2))
+```
+
 ## Fast recovery path
 
 When runtime fails, run:
