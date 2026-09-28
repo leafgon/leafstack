@@ -74,7 +74,7 @@ export const issueCatalog = [
     pattern: /Invalid number:\s*"\[object Object\]"|Invalid number:\s*\[object Object\]/i,
     severity: "error",
     meaning: "Leaflisp parse/coercion received an object payload where a scalar was expected.",
-    action: "Avoid raw parse(inport) for non-scalar-prone upstream payloads; unwrap/select scalar value first, then parse/coerce.",
+    action: "Avoid raw (parse inport) for non-scalar-prone upstream payloads; unwrap/select scalar value first, then parse/coerce.",
   },
   {
     code: "operation_not_found",
@@ -179,7 +179,7 @@ export const issueCatalog = [
     pattern: /leaflisp-raw-parse-inport-nonscalar-risk/i,
     severity: "error",
     meaning: "Leaflisp node parses inport directly even though upstream shape is non-scalar-prone.",
-    action: "Add explicit extraction (bottle/content or keyed scalar) before parse(inport).",
+    action: "Add explicit extraction (bottle/content or keyed scalar) before (parse inport).",
   },
   {
     code: "leaflisp_raw_parse_inport_unproven_scalar",

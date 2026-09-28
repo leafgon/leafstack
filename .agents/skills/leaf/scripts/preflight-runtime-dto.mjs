@@ -299,15 +299,15 @@ const buildFirstFixRecipe = ({ checks, diagnostics, staticContract, outKey, opti
         ],
       },
       "leaflisp-raw-parse-inport-nonscalar-risk": {
-        summary: "Raw parse(inport) is fed by non-scalar-risk payload shape.",
+        summary: "Raw (parse inport) is fed by non-scalar-risk payload shape.",
         steps: [
           "Unwrap/select scalar value from upstream payload before parse (for example bottle :_content or keyed field).",
-          "Keep raw parse(inport) only when scalar contract is explicit and enforced upstream.",
+          "Keep raw (parse inport) only when scalar contract is explicit and enforced upstream.",
           "Rerun preflight.",
         ],
       },
       "leaflisp-raw-parse-inport-unproven-scalar": {
-        summary: "Raw parse(inport) is used without proven scalar contract.",
+        summary: "Raw (parse inport) is used without proven scalar contract.",
         steps: [
           "If input is guaranteed scalar, keep concise parse and document/enforce contract upstream.",
           "Otherwise add explicit extraction/guard before parse.",

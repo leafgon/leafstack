@@ -1199,7 +1199,7 @@ test("preflight-runtime-dto blocks non-source IN1 reread fallback", async () => 
   }
 });
 
-test("preflight-runtime-dto warns on unproven raw parse(inport) in balanced mode", async () => {
+test("preflight-runtime-dto warns on unproven raw (parse inport) in balanced mode", async () => {
   const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
   const fakeGhostosDirectory = join(temporaryDirectory, "ghostos");
   const graphPath = join(temporaryDirectory, "graph.json");
@@ -1338,7 +1338,7 @@ test("preflight-runtime-dto warns on unproven raw parse(inport) in balanced mode
   }
 });
 
-test("preflight-runtime-dto escalates unproven raw parse(inport) in strict mode", async () => {
+test("preflight-runtime-dto escalates unproven raw (parse inport) in strict mode", async () => {
   const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
   const graphPath = join(temporaryDirectory, "graph.json");
 
@@ -1413,7 +1413,7 @@ test("preflight-runtime-dto escalates unproven raw parse(inport) in strict mode"
   }
 });
 
-test("preflight-runtime-dto blocks raw parse(inport) when upstream is non-scalar-risk", async () => {
+test("preflight-runtime-dto blocks raw (parse inport) when upstream is non-scalar-risk", async () => {
   const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
   const graphPath = join(temporaryDirectory, "graph.json");
 

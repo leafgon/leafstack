@@ -165,7 +165,7 @@ Symptom:
 Fix:
 
 1. Extract scalar explicitly (unwrap `:_content`, select key/index) before parse.
-2. Keep direct `parse(inport)` only for explicit scalar contracts.
+2. Keep direct `(parse inport)` only for explicit scalar contracts.
 
 ### `static-contract:leaflisp-raw-parse-inport-unproven-scalar`
 
@@ -187,7 +187,7 @@ Symptom:
 
 Fix:
 
-1. Remove raw `parse(inport)` for that node.
+1. Remove raw `(parse inport)` for that node.
 2. Extract scalar field first, then parse/coerce.
 3. Re-run preflight once.
 

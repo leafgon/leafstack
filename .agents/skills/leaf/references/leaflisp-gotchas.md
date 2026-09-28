@@ -36,9 +36,9 @@ For source-stage arithmetic request builders, use explicit keyed extraction:
 Do not assume positional secondary aliases (for example `inport2`) for source
 values.
 
-## Raw `parse(inport)` safety policy
+## Raw `(parse inport)` safety policy
 
-`parse(inport)` (and alias forms such as `(def x inport) ... (parse x)`) are
+`(parse inport)` (and alias forms such as `(def x inport) ... (parse x)`) are
 allowed when upstream contract guarantees scalar input.
 
 Use preflight parse-safety modes:
