@@ -37,6 +37,87 @@ Fix:
 3. Ensure upstream parser emits final scalar/vector value (not empty elementio).
 4. Rerun preflight once.
 
+### `output-null:OUT1`
+
+Symptom:
+
+- Output key is present but value is `null`.
+
+Fix:
+
+1. Repair sink-facing parser/assembly logic so final value is concrete.
+2. Keep nil-guards around missing intermediate HTTP payloads, but do not
+   collapse valid computed output into `null`.
+3. If `null` is intentionally valid for this contract, use `--allow-null-out`.
+
+### `static-contract:outflow-node-missing-incoming`
+
+Symptom:
+
+- Output node exists but has no incoming producer edge.
+
+Fix:
+
+1. Wire at least one compute/parse node into `OUT1`.
+2. Ensure sink receives finalized scalar/vector value.
+
+### `static-contract:leaflisp-wait-bottle-fallback`
+
+Symptom:
+
+- A node emits `(bottle "wait" ...)` fallback in execution logic.
+
+Fix:
+
+1. Remove placeholder wait-bottle branches from compute/request stages.
+2. Use deterministic readiness wiring with explicit merge/provenance semantics.
+
+### `static-contract:leaflisp-lossy-list-coercion`
+
+Symptom:
+
+- A node collapses list payloads to scalar `0`.
+
+Fix:
+
+1. Replace lossy `(if (islist ...) 0 ...)` coercions.
+2. Preserve list/map payloads or transform them with explicit non-lossy rules.
+
+### `static-contract:leaflisp-nonsource-in1-reread`
+
+Symptom:
+
+- A non-source node re-reads `:IN1` from transformed upstream payloads.
+
+Fix:
+
+1. Consume transformed upstream values directly.
+2. If root source value is needed downstream, pass it explicitly via named
+   bottle lanes or a deterministic `leafmixflow` merge.
+
+### `dag-contract-failed`
+
+Symptom:
+
+- Required data-edge contract check fails.
+
+Fix:
+
+1. Inspect `dagContract.missingDirectEdges`/`unexpectedDirectEdges`.
+2. Repair graph data edges to match required contract.
+3. Rerun preflight once.
+
+### `acceptance-vectors-failed`
+
+Symptom:
+
+- Smoke run passes but acceptance vectors show expected/actual mismatches.
+
+Fix:
+
+1. Repair semantic computation logic.
+2. Re-run with `--vectors` until `allPass=true`.
+
 ### `static-contract:http-node-missing-request-source`
 
 Symptom:

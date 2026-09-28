@@ -9,7 +9,7 @@ import { classifyRuntimeIssues, extractRefnodeFromText } from "./lib/runtime-err
 
 const usage = () => {
   console.error(
-    "usage: preflight-runtime-dto.mjs --graph <graph.json> [--in1 <number>] [--out-key <key>] [--out-kind any|scalar|vector] [--out-length <n>] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-version-check] [--diagnose] [--quiet] [--json-indent <n>] [--log-file <path>]",
+    "usage: preflight-runtime-dto.mjs --graph <graph.json> [--in1 <number>] [--out-key <key>] [--out-kind any|scalar|vector] [--out-length <n>] [--vectors <vectors.json>] [--required <required-edges.json>] [--allow-null-out] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-version-check] [--diagnose] [--quiet] [--json-indent <n>] [--log-file <path>]",
   );
 };
 
@@ -29,6 +29,8 @@ const parseArgs = (argv) => {
     "--out-key",
     "--out-kind",
     "--out-length",
+    "--vectors",
+    "--required",
     "--version",
     "--ghostos-dir",
     "--json-indent",
@@ -38,6 +40,7 @@ const parseArgs = (argv) => {
     "--quiet",
     "--skip-version-check",
     "--diagnose",
+    "--allow-null-out",
   ]);
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -81,6 +84,9 @@ const parseArgs = (argv) => {
     outKey: String(options["out-key"] ?? "OUT1"),
     outKind,
     outLength,
+    vectors: options.vectors ? resolve(options.vectors) : null,
+    required: options.required ? resolve(options.required) : null,
+    allowNullOut: Boolean(options["allow-null-out"]),
     version: options.version,
     ghostosDir: options["ghostos-dir"] ? resolve(options["ghostos-dir"]) : null,
     skipVersionCheck: Boolean(options["skip-version-check"]),
@@ -132,6 +138,9 @@ const buildPreflightCommand = (options) => {
     "--diagnose",
   ];
   if (Number.isInteger(options.outLength)) command.push(`--out-length ${quoteArg(options.outLength)}`);
+  if (options.vectors) command.push(`--vectors ${quoteArg(options.vectors)}`);
+  if (options.required) command.push(`--required ${quoteArg(options.required)}`);
+  if (options.allowNullOut) command.push("--allow-null-out");
   if (options.version) command.push(`--version ${quoteArg(options.version)}`);
   if (options.ghostosDir) command.push(`--ghostos-dir ${quoteArg(options.ghostosDir)}`);
   if (options.skipVersionCheck) command.push("--skip-version-check");
@@ -174,6 +183,42 @@ const buildFirstFixRecipe = ({ checks, diagnostics, outKey, options, refnode }) 
     return recipe;
   }
 
+  if (safeChecks.includes(`output-null:${outKey}`)) {
+    recipe.code = `output-null:${outKey}`;
+    recipe.summary = `Repair output assembly for '${outKey}' to emit a non-null value.`;
+    recipe.steps = [
+      "Ensure the sink-facing node returns computed scalar/vector output, not nil/null.",
+      "Verify parser nil-guards are preserving valid computed values and not collapsing to null.",
+      "Rerun preflight once after sink/output repair.",
+    ];
+    recipe.nextCommands = [buildPreflightCommand(options)];
+    return recipe;
+  }
+
+  if (safeChecks.includes("dag-contract-failed")) {
+    recipe.code = "dag-contract-failed";
+    recipe.summary = "Repair required data-edge contract mismatches before runtime tuning.";
+    recipe.steps = [
+      "Review missing/unexpected direct and reachability edges in dagContract diagnostics.",
+      "Repair graph edges to match required contract payload.",
+      "Rerun preflight once after DAG repair.",
+    ];
+    recipe.nextCommands = [buildPreflightCommand(options)];
+    return recipe;
+  }
+
+  if (safeChecks.includes("acceptance-vectors-failed")) {
+    recipe.code = "acceptance-vectors-failed";
+    recipe.summary = "Runtime smoke passed but acceptance vectors failed; fix semantic computation.";
+    recipe.steps = [
+      "Inspect acceptanceVectors.results mismatches for expected vs actual outputs.",
+      "Repair arithmetic/dataflow semantics while preserving validated output sink wiring.",
+      "Rerun preflight once after semantic fix.",
+    ];
+    recipe.nextCommands = [buildPreflightCommand(options)];
+    return recipe;
+  }
+
   const staticContractCheck = safeChecks.find((entry) => entry.startsWith("static-contract:"));
   if (staticContractCheck) {
     const code = staticContractCheck.replace("static-contract:", "");
@@ -207,6 +252,46 @@ const buildFirstFixRecipe = ({ checks, diagnostics, outKey, options, refnode }) 
         steps: [
           "Unwrap bottle/content nil-safely.",
           "Read :result and return parsed scalar/vector output.",
+          "Rerun preflight.",
+        ],
+      },
+      "http-parse-target-unsafe-result-parse": {
+        summary: "HTTP parser parses :result unsafely and needs nil guards.",
+        steps: [
+          "Guard missing :result before parse/coercion.",
+          "Preserve parser output as scalar/vector without unchecked parse on nil.",
+          "Rerun preflight.",
+        ],
+      },
+      "outflow-node-missing-incoming": {
+        summary: "Output node exists but has no producer edge.",
+        steps: [
+          `Wire at least one compute/parse node into '${outKey}'.`,
+          "Ensure sink receives finalized computed value.",
+          "Rerun preflight.",
+        ],
+      },
+      "leaflisp-wait-bottle-fallback": {
+        summary: "Leaflisp emits placeholder wait bottle; replace with deterministic readiness wiring.",
+        steps: [
+          "Remove bottle \"wait\" fallback logic from compute/request nodes.",
+          "Use explicit merge/provenance wiring so requests only execute when required inputs are present.",
+          "Rerun preflight.",
+        ],
+      },
+      "leaflisp-lossy-list-coercion": {
+        summary: "Leaflisp coerces list payloads to scalar 0, losing data.",
+        steps: [
+          "Remove lossy (if (islist ...) 0 ...) conversions.",
+          "Preserve lists or map them with explicit non-lossy transforms.",
+          "Rerun preflight.",
+        ],
+      },
+      "leaflisp-nonsource-in1-reread": {
+        summary: "Leaflisp re-reads :IN1 from transformed payloads instead of consuming upstream results.",
+        steps: [
+          "Consume transformed upstream values explicitly at each stage.",
+          "Avoid generic :IN1 fallback extraction in non-source nodes.",
           "Rerun preflight.",
         ],
       },
@@ -390,6 +475,8 @@ try {
 const scriptsRoot = resolve(fileURLToPath(new URL(".", import.meta.url)));
 const validateScript = resolve(scriptsRoot, "validate-runtime-dto.mjs");
 const smokeScript = resolve(scriptsRoot, "run-runtime-dto-smoke.mjs");
+const validateDagContractScript = resolve(scriptsRoot, "validate-dag-contract.mjs");
+const acceptanceVectorsScript = resolve(scriptsRoot, "run-acceptance-vectors.mjs");
 
 try {
   const diagnostics = [];
@@ -397,7 +484,9 @@ try {
   let observedOutKind = null;
   let observedOutLength = null;
   let staticContract = null;
+  let dagContract = null;
   let smoke = null;
+  let acceptanceVectors = null;
   let smokeError = null;
   let embeddedSmokeError = null;
 
@@ -425,6 +514,36 @@ try {
     }
   }
 
+  if (validation?.pass && checks.length === 0 && options.required) {
+    const dagRun = await runScriptJson(
+      validateDagContractScript,
+      ["--graph", options.graph, "--required", options.required],
+      options,
+    );
+    if (dagRun.ok) {
+      dagContract = dagRun.payload;
+      if (!dagContract?.pass) {
+        checks.push("dag-contract-failed");
+      }
+    } else {
+      const embeddedDag = parseEmbeddedJsonObject(dagRun.error?.stdout);
+      if (embeddedDag?.mode === "dag-contract-check") {
+        dagContract = embeddedDag;
+        checks.push("dag-contract-failed");
+      } else {
+        checks.push("dag-contract-runner-failed");
+        diagnostics.push(
+          ...collectDiagnostics(
+            options,
+            dagRun.error?.message,
+            dagRun.error?.stderr,
+            dagRun.error?.stdout,
+          ),
+        );
+      }
+    }
+  }
+
   if (validation?.pass && checks.length === 0) {
     const smokeArgs = ["--graph", options.graph, "--in1", String(options.in1)];
     if (options.version) smokeArgs.push("--version", options.version);
@@ -447,6 +566,10 @@ try {
 
       if (!(options.outKey in (smoke?.output ?? {}))) {
         checks.push(`missing-output-key:${options.outKey}`);
+      }
+
+      if (!options.allowNullOut && (options.outKey in (smoke?.output ?? {})) && outValue === null) {
+        checks.push(`output-null:${options.outKey}`);
       }
 
       if (options.outKind !== "any" && observedOutKind !== options.outKind) {
@@ -488,6 +611,36 @@ try {
     }
   }
 
+  if (validation?.pass && checks.length === 0 && options.vectors) {
+    const acceptanceArgs = ["--graph", options.graph, "--vectors", options.vectors];
+    if (options.version) acceptanceArgs.push("--version", options.version);
+    if (options.ghostosDir) acceptanceArgs.push("--ghostos-dir", options.ghostosDir);
+
+    const acceptanceRun = await runScriptJson(acceptanceVectorsScript, acceptanceArgs, options);
+    if (acceptanceRun.ok) {
+      acceptanceVectors = acceptanceRun.payload;
+      if (!acceptanceVectors?.allPass) {
+        checks.push("acceptance-vectors-failed");
+      }
+    } else {
+      const embeddedAcceptance = parseEmbeddedJsonObject(acceptanceRun.error?.stdout);
+      if (embeddedAcceptance?.mode === "acceptance-vectors") {
+        acceptanceVectors = embeddedAcceptance;
+        checks.push("acceptance-vectors-failed");
+      } else {
+        checks.push("acceptance-vectors-runner-failed");
+        diagnostics.push(
+          ...collectDiagnostics(
+            options,
+            acceptanceRun.error?.message,
+            acceptanceRun.error?.stderr,
+            acceptanceRun.error?.stdout,
+          ),
+        );
+      }
+    }
+  }
+
   const pass = Boolean(validation?.pass) && checks.length === 0;
 
   const output = {
@@ -496,6 +649,9 @@ try {
     graphPath: options.graph,
     input: { IN1: options.in1 },
     outKey: options.outKey,
+    vectorsPath: options.vectors,
+    requiredPath: options.required,
+    allowNullOut: options.allowNullOut,
     outKindExpected: options.outKind,
     outKindObserved: observedOutKind,
     outLengthExpected: options.outLength,
@@ -509,6 +665,14 @@ try {
 
   if (staticContract) {
     output.staticContract = staticContract;
+  }
+
+  if (dagContract) {
+    output.dagContract = dagContract;
+  }
+
+  if (acceptanceVectors) {
+    output.acceptanceVectors = acceptanceVectors;
   }
 
   if (smokeError) {

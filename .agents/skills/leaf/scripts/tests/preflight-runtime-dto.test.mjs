@@ -723,3 +723,400 @@ test("preflight-runtime-dto blocks literal shell templates in leaflisp HTTP requ
     await rm(temporaryDirectory, { recursive: true, force: true });
   }
 });
+
+test("preflight-runtime-dto blocks placeholder wait-bottle fallback", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  const waitFallbackFixture = {
+    domain: "example",
+    appid: "wait-fallback-fixture",
+    nodes: [
+      {
+        uuid: "IN1",
+        leafnodetype: "leafinflowport",
+        data: encode({ leaf: { logic: { type: "leafinflowport", args: {} } } }),
+        out_edges: [
+          {
+            uuid: "E1",
+            source: { uuid: "IN1" },
+            target: { uuid: "JOIN" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "JOIN",
+        leafnodetype: "leaflisp",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leaflisp",
+              args: {
+                lispexpression: "(do (bottle \"wait\" 0))",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E2",
+            source: { uuid: "JOIN" },
+            target: { uuid: "OUT1" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "OUT1",
+        leafnodetype: "leafoutflowport",
+        data: encode({ leaf: { logic: { type: "leafoutflowport", args: {} } } }),
+        out_edges: [],
+      },
+    ],
+  };
+
+  try {
+    await writeFile(graphPath, `${JSON.stringify(waitFallbackFixture, null, 2)}\n`, "utf8");
+    const result = await run(["--graph", graphPath, "--out-key", "OUT1", "--diagnose"]);
+
+    assert.equal(result.status, 1, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.pass, false);
+    assert.ok(output.checks.includes("static-contract:leaflisp-wait-bottle-fallback"));
+    assert.equal(output.steps.smoke, null);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("preflight-runtime-dto blocks lossy list coercion", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  const lossyListFixture = {
+    domain: "example",
+    appid: "lossy-list-fixture",
+    nodes: [
+      {
+        uuid: "IN1",
+        leafnodetype: "leafinflowport",
+        data: encode({ leaf: { logic: { type: "leafinflowport", args: {} } } }),
+        out_edges: [
+          {
+            uuid: "E1",
+            source: { uuid: "IN1" },
+            target: { uuid: "JOIN" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "JOIN",
+        leafnodetype: "leaflisp",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leaflisp",
+              args: {
+                lispexpression: "(do (def raw inport) (def v (if (islist raw) 0 raw)) v)",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E2",
+            source: { uuid: "JOIN" },
+            target: { uuid: "OUT1" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "OUT1",
+        leafnodetype: "leafoutflowport",
+        data: encode({ leaf: { logic: { type: "leafoutflowport", args: {} } } }),
+        out_edges: [],
+      },
+    ],
+  };
+
+  try {
+    await writeFile(graphPath, `${JSON.stringify(lossyListFixture, null, 2)}\n`, "utf8");
+    const result = await run(["--graph", graphPath, "--out-key", "OUT1", "--diagnose"]);
+
+    assert.equal(result.status, 1, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.pass, false);
+    assert.ok(output.checks.includes("static-contract:leaflisp-lossy-list-coercion"));
+    assert.equal(output.steps.smoke, null);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("preflight-runtime-dto blocks non-source IN1 reread fallback", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  const nonsourceIn1RereadFixture = {
+    domain: "example",
+    appid: "nonsource-in1-reread-fixture",
+    nodes: [
+      {
+        uuid: "IN1",
+        leafnodetype: "leafinflowport",
+        data: encode({ leaf: { logic: { type: "leafinflowport", args: {} } } }),
+        out_edges: [
+          {
+            uuid: "E1",
+            source: { uuid: "IN1" },
+            target: { uuid: "PASS" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "PASS",
+        leafnodetype: "leaflisp",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leaflisp",
+              args: {
+                lispexpression: "(do {:x inport})",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E2",
+            source: { uuid: "PASS" },
+            target: { uuid: "JOIN" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "JOIN",
+        leafnodetype: "leaflisp",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leaflisp",
+              args: {
+                lispexpression: "(do (def raw0 (if (isbottle inport) (get inport :_content) inport)) (def bykey (get raw0 :IN1)) (if (isnil bykey) raw0 bykey))",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E3",
+            source: { uuid: "JOIN" },
+            target: { uuid: "OUT1" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "OUT1",
+        leafnodetype: "leafoutflowport",
+        data: encode({ leaf: { logic: { type: "leafoutflowport", args: {} } } }),
+        out_edges: [],
+      },
+    ],
+  };
+
+  try {
+    await writeFile(graphPath, `${JSON.stringify(nonsourceIn1RereadFixture, null, 2)}\n`, "utf8");
+    const result = await run(["--graph", graphPath, "--out-key", "OUT1", "--diagnose"]);
+
+    assert.equal(result.status, 1, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.pass, false);
+    assert.ok(output.checks.includes("static-contract:leaflisp-nonsource-in1-reread"));
+    assert.equal(output.steps.smoke, null);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("preflight-runtime-dto requires incoming producer edge for outflow node", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  const missingOutflowIncomingFixture = {
+    domain: "example",
+    appid: "missing-outflow-incoming-fixture",
+    nodes: [
+      {
+        uuid: "IN1",
+        leafnodetype: "leafinflowport",
+        data: encode({ leaf: { logic: { type: "leafinflowport", args: {} } } }),
+        out_edges: [],
+      },
+      {
+        uuid: "OUT1",
+        leafnodetype: "leafoutflowport",
+        data: encode({ leaf: { logic: { type: "leafoutflowport", args: {} } } }),
+        out_edges: [],
+      },
+    ],
+  };
+
+  try {
+    await writeFile(graphPath, `${JSON.stringify(missingOutflowIncomingFixture, null, 2)}\n`, "utf8");
+    const result = await run(["--graph", graphPath, "--out-key", "OUT1", "--diagnose"]);
+
+    assert.equal(result.status, 1, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.pass, false);
+    assert.ok(output.checks.includes("static-contract:outflow-node-missing-incoming"));
+    assert.equal(output.steps.smoke, null);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("preflight-runtime-dto treats null output as failure unless allow-null-out is set", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
+  const fakeGhostosDirectory = join(temporaryDirectory, "ghostos");
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  try {
+    await mkdir(join(fakeGhostosDirectory, "src"), { recursive: true });
+    await writeFile(
+      join(fakeGhostosDirectory, "package.json"),
+      `${JSON.stringify({ name: "ghostos", version: ghostosLatest, type: "module" }, null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(fakeGhostosDirectory, "src", "index.core.js"),
+      "export const executeLEAFGraph = async () => ({ OUT1: null });\n",
+      "utf8",
+    );
+
+    await writeFile(graphPath, `${JSON.stringify(runtimeFixture, null, 2)}\n`, "utf8");
+
+    const failedResult = await run([
+      "--graph",
+      graphPath,
+      "--out-key",
+      "OUT1",
+      "--ghostos-dir",
+      fakeGhostosDirectory,
+      "--version",
+      ghostosLatest,
+    ]);
+
+    assert.equal(failedResult.status, 1, failedResult.stderr);
+    const failedOutput = JSON.parse(failedResult.stdout);
+    assert.equal(failedOutput.pass, false);
+    assert.ok(failedOutput.checks.includes("output-null:OUT1"));
+
+    const allowedResult = await run([
+      "--graph",
+      graphPath,
+      "--out-key",
+      "OUT1",
+      "--ghostos-dir",
+      fakeGhostosDirectory,
+      "--version",
+      ghostosLatest,
+      "--allow-null-out",
+    ]);
+
+    assert.equal(allowedResult.status, 0, allowedResult.stderr);
+    const allowedOutput = JSON.parse(allowedResult.stdout);
+    assert.equal(allowedOutput.pass, true);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("preflight-runtime-dto can fail on required DAG contract before smoke", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
+  const graphPath = join(temporaryDirectory, "graph.json");
+  const requiredPath = join(temporaryDirectory, "required.json");
+
+  try {
+    await writeFile(graphPath, `${JSON.stringify(runtimeFixture, null, 2)}\n`, "utf8");
+    await writeFile(
+      requiredPath,
+      `${JSON.stringify(["IN1->MISSING_NODE", "MISSING_NODE->OUT1"], null, 2)}\n`,
+      "utf8",
+    );
+
+    const result = await run([
+      "--graph",
+      graphPath,
+      "--out-key",
+      "OUT1",
+      "--required",
+      requiredPath,
+      "--diagnose",
+    ]);
+
+    assert.equal(result.status, 1, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.pass, false);
+    assert.ok(output.checks.includes("dag-contract-failed"));
+    assert.equal(output.dagContract.pass, false);
+    assert.equal(output.steps.smoke, null);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("preflight-runtime-dto can run acceptance vectors and fail on semantic mismatch", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
+  const fakeGhostosDirectory = join(temporaryDirectory, "ghostos");
+  const graphPath = join(temporaryDirectory, "graph.json");
+  const vectorsPath = join(temporaryDirectory, "vectors.json");
+
+  try {
+    await mkdir(join(fakeGhostosDirectory, "src"), { recursive: true });
+    await writeFile(
+      join(fakeGhostosDirectory, "package.json"),
+      `${JSON.stringify({ name: "ghostos", version: ghostosLatest, type: "module" }, null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(fakeGhostosDirectory, "src", "index.core.js"),
+      "export const executeLEAFGraph = async (_graph, input) => ({ OUT1: Number(input.IN1 ?? 0) + 2 });\n",
+      "utf8",
+    );
+
+    await writeFile(graphPath, `${JSON.stringify(runtimeFixture, null, 2)}\n`, "utf8");
+    await writeFile(
+      vectorsPath,
+      `${JSON.stringify([{ case: 1, input: { IN1: 11 }, expected: { OUT1: 999 } }], null, 2)}\n`,
+      "utf8",
+    );
+
+    const result = await run([
+      "--graph",
+      graphPath,
+      "--out-key",
+      "OUT1",
+      "--vectors",
+      vectorsPath,
+      "--ghostos-dir",
+      fakeGhostosDirectory,
+      "--version",
+      ghostosLatest,
+      "--diagnose",
+    ]);
+
+    assert.equal(result.status, 1, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.pass, false);
+    assert.ok(output.checks.includes("acceptance-vectors-failed"));
+    assert.equal(output.acceptanceVectors.allPass, false);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});

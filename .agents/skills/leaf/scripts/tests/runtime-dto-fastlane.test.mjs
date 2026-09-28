@@ -146,3 +146,57 @@ test("runtime-dto-fastlane returns diagnose summary on runtime failure", async (
     await rm(temporaryDirectory, { recursive: true, force: true });
   }
 });
+
+test("runtime-dto-fastlane forwards allow-null-out to preflight", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".runtime-dto-fastlane-test-"));
+  const fakeGhostosDirectory = join(temporaryDirectory, "ghostos");
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  try {
+    await mkdir(join(fakeGhostosDirectory, "src"), { recursive: true });
+    await writeFile(
+      join(fakeGhostosDirectory, "package.json"),
+      `${JSON.stringify({ name: "ghostos", version: ghostosLatest, type: "module" }, null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(fakeGhostosDirectory, "src", "index.core.js"),
+      "export const executeLEAFGraph = async () => ({ OUT1: null });\n",
+      "utf8",
+    );
+
+    await writeFile(graphPath, `${JSON.stringify(runtimeFixture, null, 2)}\n`, "utf8");
+
+    const failedResult = await run([
+      "--graph",
+      graphPath,
+      "--ghostos-dir",
+      fakeGhostosDirectory,
+      "--version",
+      ghostosLatest,
+      "--quiet",
+    ]);
+
+    assert.equal(failedResult.status, 1, failedResult.stderr);
+    const failedOutput = JSON.parse(failedResult.stdout);
+    assert.equal(failedOutput.pass, false);
+    assert.ok(failedOutput.checks.includes("output-null:OUT1"));
+
+    const allowedResult = await run([
+      "--graph",
+      graphPath,
+      "--ghostos-dir",
+      fakeGhostosDirectory,
+      "--version",
+      ghostosLatest,
+      "--allow-null-out",
+      "--quiet",
+    ]);
+
+    assert.equal(allowedResult.status, 0, allowedResult.stderr);
+    const allowedOutput = JSON.parse(allowedResult.stdout);
+    assert.equal(allowedOutput.pass, true);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
