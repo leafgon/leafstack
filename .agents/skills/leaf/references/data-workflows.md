@@ -379,8 +379,11 @@ stages—the spell family must still have one clear contract and responsibility.
 
 A live minimal reference is `breezyforest/leafmixflow`: constant producers feed
 named bottles, `leafmixflow` merges the lanes, and one focused `leaflisp` reads
-keyed values directly. Prefer this compact shape over defensive boilerplate when
-upstream bottle naming already provides deterministic provenance.
+keyed values directly. A local graph DTO snapshot is available at
+`.agents/skills/leaf/references/examples/breezyforest-leafmixflow.runtime-dto.json`
+for offline review, prompt grounding, and copy-forward authoring. Prefer this
+compact shape over defensive boilerplate when upstream bottle naming already
+provides deterministic provenance.
 
 Avoid duplicating complete JSON Schemas in both legacy and successor
 contract-note nodes. During an unavoidable compatibility window, keep one
