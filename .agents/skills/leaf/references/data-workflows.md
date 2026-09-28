@@ -245,6 +245,11 @@ bottle immediately followed by an unbottle on a single linear path: without
 routing, aggregation, provenance, or another named-lane purpose, that pair is
 neutral graph noise.
 
+Keep keyed merge consumers succinct. Once upstream lanes are named bottles and
+the selected mix mode materializes keyed content, read keys directly in the
+next `leaflisp` stage (for example `(get inport :arg1)` / `(get inport :arg2)`)
+instead of adding generic repeated bottle/content unwrap scaffolds.
+
 A dictionary mix is also useful with one named bottle when the next node is
 LEAFlisp and retaining the input's identity makes the transform clearer:
 
@@ -371,6 +376,11 @@ post-spell unbottle when the spell returns raw result content. If downstream
 routing requires a bottle, return a deliberate named bottle instead. Do not
 turn this pattern into one broad dispatcher that hides unrelated workflow
 stages—the spell family must still have one clear contract and responsibility.
+
+A live minimal reference is `breezyforest/leafmixflow`: constant producers feed
+named bottles, `leafmixflow` merges the lanes, and one focused `leaflisp` reads
+keyed values directly. Prefer this compact shape over defensive boilerplate when
+upstream bottle naming already provides deterministic provenance.
 
 Avoid duplicating complete JSON Schemas in both legacy and successor
 contract-note nodes. During an unavoidable compatibility window, keep one

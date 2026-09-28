@@ -122,6 +122,8 @@ const classifyOutValue = (value) => {
   return "other";
 };
 
+const isObjectRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+
 const quoteArg = (value) => {
   const raw = String(value);
   if (/^[A-Za-z0-9_./:-]+$/.test(raw)) return raw;
@@ -158,10 +160,18 @@ const buildDecodeCommand = (options, refnode) => {
   ].join(" ");
 };
 
-const buildFirstFixRecipe = ({ checks, diagnostics, outKey, options, refnode }) => {
+const buildFirstFixRecipe = ({ checks, diagnostics, staticContract, outKey, options, refnode }) => {
   const safeChecks = Array.isArray(checks) ? checks : [];
   const safeDiagnostics = Array.isArray(diagnostics) ? diagnostics : [];
   const firstDiagnosticCode = typeof safeDiagnostics[0]?.code === "string" ? safeDiagnostics[0].code : null;
+  const staticIssueCodes = Array.isArray(staticContract?.issues)
+    ? staticContract.issues.map((entry) => entry?.code).filter((code) => typeof code === "string")
+    : [];
+  const hasOutflowStructureIssue = staticIssueCodes.some((code) => [
+    "missing-outflow-node",
+    "outflow-node-type-mismatch",
+    "outflow-node-missing-incoming",
+  ].includes(code));
 
   const recipe = {
     code: null,
@@ -170,15 +180,48 @@ const buildFirstFixRecipe = ({ checks, diagnostics, outKey, options, refnode }) 
     nextCommands: [],
   };
 
+  if (safeChecks.includes(`output-envelope-null:${outKey}`)) {
+    recipe.code = `output-envelope-null:${outKey}`;
+    recipe.summary = `Runtime output envelope is null; repair final output assembly for '${outKey}'.`;
+    recipe.steps = [
+      "Ensure the final producer returns an object containing the required output key.",
+      "Preserve computed values through parse/join stages and avoid collapsing final output to null.",
+      "Rerun preflight once after output assembly repair.",
+    ];
+    recipe.nextCommands = [buildPreflightCommand(options)];
+    return recipe;
+  }
+
+  if (safeChecks.includes(`output-envelope-nonobject:${outKey}`)) {
+    recipe.code = `output-envelope-nonobject:${outKey}`;
+    recipe.summary = `Runtime output envelope is not an object; emit '${outKey}' in a keyed output object.`;
+    recipe.steps = [
+      `Ensure runtime output shape is an object map with key '${outKey}'.`,
+      "Avoid returning bare scalar/vector roots when output-key contracts are required.",
+      "Rerun preflight once after output-envelope repair.",
+    ];
+    recipe.nextCommands = [buildPreflightCommand(options)];
+    return recipe;
+  }
+
   if (safeChecks.includes(`missing-output-key:${outKey}`)) {
     recipe.code = `missing-output-key:${outKey}`;
-    recipe.summary = `Repair sink mapping for '${outKey}' before any other changes.`;
-    recipe.steps = [
-      `Ensure node '${outKey}' exists with leafnodetype 'leafoutflowport'.`,
-      `Ensure at least one compute/parse node has an outgoing edge targeting '${outKey}'.`,
-      "Ensure upstream parser emits scalar/vector value (not empty elementio wrapper).",
-      "Rerun preflight once after the sink fix.",
-    ];
+    if (hasOutflowStructureIssue) {
+      recipe.summary = `Repair sink mapping for '${outKey}' before any other changes.`;
+      recipe.steps = [
+        `Ensure node '${outKey}' exists with leafnodetype 'leafoutflowport'.`,
+        `Ensure at least one compute/parse node has an outgoing edge targeting '${outKey}'.`,
+        "Ensure upstream parser emits scalar/vector value (not empty elementio wrapper).",
+        "Rerun preflight once after the sink fix.",
+      ];
+    } else {
+      recipe.summary = `Output object is missing '${outKey}'; repair final emit/parse assembly before rewiring sink.`;
+      recipe.steps = [
+        "Keep existing sink wiring and repair the final producer payload shape.",
+        `Ensure final producer returns an object containing key '${outKey}'.`,
+        "Rerun preflight once after output assembly repair.",
+      ];
+    }
     recipe.nextCommands = [buildPreflightCommand(options)];
     return recipe;
   }
@@ -560,15 +603,24 @@ try {
     if (smokeRun.ok) {
       smoke = smokeRun.payload;
 
-      const outValue = smoke?.output?.[options.outKey];
+      const smokeOutput = smoke?.output;
+      const hasObjectOutput = isObjectRecord(smokeOutput);
+      const hasOutKey = hasObjectOutput && Object.prototype.hasOwnProperty.call(smokeOutput, options.outKey);
+      const outValue = hasOutKey ? smokeOutput[options.outKey] : undefined;
       observedOutKind = classifyOutValue(outValue);
       observedOutLength = Array.isArray(outValue) ? outValue.length : null;
 
-      if (!(options.outKey in (smoke?.output ?? {}))) {
+      if (!hasObjectOutput) {
+        if (smokeOutput === null || smokeOutput === undefined) {
+          checks.push(`output-envelope-null:${options.outKey}`);
+        } else {
+          checks.push(`output-envelope-nonobject:${options.outKey}`);
+        }
+      } else if (!hasOutKey) {
         checks.push(`missing-output-key:${options.outKey}`);
       }
 
-      if (!options.allowNullOut && (options.outKey in (smoke?.output ?? {})) && outValue === null) {
+      if (!options.allowNullOut && hasOutKey && outValue === null) {
         checks.push(`output-null:${options.outKey}`);
       }
 
@@ -712,6 +764,7 @@ try {
     const firstFixRecipe = buildFirstFixRecipe({
       checks,
       diagnostics: issueList,
+      staticContract,
       outKey: options.outKey,
       options,
       refnode,

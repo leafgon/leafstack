@@ -147,6 +147,7 @@ Preflight/fastlane defaults and guardrails:
 - Enforce deterministic sink wiring (`OUT1` must have an incoming producer edge).
 - Block known high-risk LEAFlisp anti-patterns such as placeholder wait-bottle fallbacks, lossy list-to-zero coercion, and downstream root-input key re-read fallbacks.
 - When `--required` and `--vectors` are provided, enforce DAG contract + acceptance-vector checks before reporting pass.
+- Treat `completion.readyToSubmit=true` / `completion.stopNow=true` as smoke/static readiness unless task-level contract flags were included in that run (`--required` and/or `--vectors` when available).
 
 Never store LEAF graphs in a custom top-level `nodes` + `edges` schema under
 this skill. Use one of two allowed forms only:
@@ -319,10 +320,13 @@ Pass `--version X.Y.Z` when the task pins GhostOS. The runner fails if the insta
 - For every `leaflambdaedge`, keep the source dataflow component isolated from
   the target dataflow component: nodes in those two groups must not share a
   `leafoutflowport`.
-- When a named bottle feeds LEAFlisp and its name should remain explicit, put
-  `leafmixflow` in `dictionary` mode before the LEAFlisp node and read the
-  payload by that key. Use `leafunbottle` only when the downstream contract is
-  intentionally the anonymous raw content.
+- When a named bottle feeds LEAFlisp and its name should remain explicit, use a
+  keyed `leafmixflow` join (for example `dictionary`, or runtime-equivalent
+  `merge` where validated), then read payload values by key directly in the next
+  LEAFlisp stage. Avoid repeated generic `isbottle`/`:_content` unwrap chains
+  unless the local contract explicitly requires envelope handling there. Use
+  `leafunbottle` only when the downstream contract is intentionally the
+  anonymous raw content.
 - Treat every unanchored construct that is not lambda-attached to a
   `leafspelldef` as part of the namespace's main graph. A
   `<domain-id>/<app-id>` namespace may have zero or one main graph, never

@@ -116,6 +116,17 @@ Use one of these deterministic patterns:
    `leafmixflow`, then pass the single merged output to `leaflisp` and read by
    key via `get`.
 
+Keep the post-merge stage compact when keyed provenance is already explicit:
+
+```clojure
+(def left (get inport :arg1))
+(def right (get inport :arg2))
+```
+
+Avoid layering repeated generic `isbottle`/`:_content` unwrap scaffolds on top
+of keyed mixflow inputs unless the contract explicitly requires bottle-envelope
+handling at that exact stage.
+
 Avoid positional assumptions such as `(get inport 0)` / `(get inport 1)` for
 multi-edge dependency joins.
 
@@ -244,4 +255,7 @@ This keeps runtime fixture quality high without reverse-engineering bundled
 GhostOS internals.
 
 Stop immediately when preflight reports
-`completion.readyToSubmit=true` and `completion.stopNow=true`.
+`completion.readyToSubmit=true` and `completion.stopNow=true`, but treat that as
+submission-ready only when task-level contracts were included in the same run
+(`--required`/`--vectors` when available). Otherwise this is shape/static/smoke
+readiness and not full contract completion.
