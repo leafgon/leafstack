@@ -115,6 +115,8 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   --in1 11 \
   --out-key OUT1 \
   --out-kind any \
+  --required path/to/required-data-edges.json \
+  --vectors path/to/acceptance-vectors.json \
   --diagnose \
   --quiet \
   --log-file .tmp/leaf-preflight.log
@@ -124,6 +126,8 @@ node .agents/skills/leaf/scripts/runtime-dto-fastlane.mjs \
   --in1 11 \
   --out-key OUT1 \
   --out-kind any \
+  --required path/to/required-data-edges.json \
+  --vectors path/to/acceptance-vectors.json \
   --quiet \
   --log-file .tmp/leaf-fastlane.log
 
@@ -136,6 +140,13 @@ node .agents/skills/leaf/scripts/explain-runtime-error.mjs \
   --stderr path/to/stderr.log \
   --graph path/to/graph.json
 ```
+
+Preflight/fastlane defaults and guardrails:
+
+- Treat `OUT1: null` as a failed output gate by default; set `--allow-null-out` only when the contract explicitly permits null output.
+- Enforce deterministic sink wiring (`OUT1` must have an incoming producer edge).
+- Block known high-risk LEAFlisp anti-patterns such as placeholder wait-bottle fallbacks, lossy list-to-zero coercion, and downstream root-input key re-read fallbacks.
+- When `--required` and `--vectors` are provided, enforce DAG contract + acceptance-vector checks before reporting pass.
 
 Never store LEAF graphs in a custom top-level `nodes` + `edges` schema under
 this skill. Use one of two allowed forms only:

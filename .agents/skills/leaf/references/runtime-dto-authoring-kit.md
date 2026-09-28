@@ -157,6 +157,8 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   --in1 11 \
   --out-key OUT1 \
   --out-kind scalar \
+  --required path/to/required-edges.json \
+  --vectors path/to/test-vectors.json \
   --diagnose \
   --quiet \
   --log-file .tmp/leaf-preflight.log
@@ -186,6 +188,18 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   `operationId`; use by-operation payloads only.
 - `Cannot read properties of null (reading 'startsWith')` usually indicates a
   parser node attempted string parse/coercion on missing HTTP result data.
+- `Detected unsettled top-level await` usually indicates async flow was
+  short-circuited by placeholder/fallback signaling instead of deterministic
+  readiness wiring.
+
+Preflight static contracts also block common high-risk anti-patterns:
+
+- placeholder wait-bottle fallback in compute/request nodes;
+- lossy list coercion to scalar zero;
+- non-source stages that re-read `:IN1` from transformed payload maps.
+
+By default preflight treats `OUT1: null` as a failure. Use `--allow-null-out`
+only when the task contract explicitly permits null output.
 
 Use the runtime explainer to classify common stderr signatures and (optionally)
 attach runtime DTO diagnostics:

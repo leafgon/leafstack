@@ -50,6 +50,11 @@ Prefer this parser shape for `leafelement(http)` output:
 
 Avoid optimistic assumptions that `inport` is already the final response map.
 
+Avoid fallback parse shapes that can coerce missing values:
+
+- `(parse (get payload :result))` without `(isnil ...)` guard.
+- `(parse result)` when `result` is bound from `:result` and never nil-checked.
+
 ## Safer replacements
 
 - Use direct map/vector literals when needed in your target runtime grammar.
@@ -67,6 +72,34 @@ Avoid this in `leaflisp` when multiple edges feed the node:
 ```
 
 Use provenance-safe screening/lookup instead.
+
+## Avoid placeholder wait-bottle fallbacks
+
+Avoid emitting synthetic wait bottles from compute/request stages:
+
+```clojure
+(bottle "wait" 0)
+```
+
+Prefer deterministic readiness wiring (explicit merge/provenance contracts) so
+HTTP requests only run when required inputs are present.
+
+## Avoid lossy list coercion
+
+Do not collapse list payloads to scalar `0`:
+
+```clojure
+(if (islist raw) 0 raw)
+```
+
+Use explicit non-lossy shaping (preserve list/map structure or branch by type).
+
+## Downstream `:IN1` re-read caution
+
+For non-source stages, avoid generic fallback extraction of `:IN1` from merged
+upstream payloads. Consume transformed upstream values explicitly and preserve
+provenance with named bottles/`leafmixflow` when original source values are
+required downstream.
 
 ## Fast recovery path
 

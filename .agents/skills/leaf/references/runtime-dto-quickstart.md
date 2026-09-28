@@ -26,6 +26,21 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   --diagnose
 ```
 
+When task-pack contracts are available, include them in the same run:
+
+```sh
+node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
+  --graph path/to/graph.json \
+  --required path/to/required-edges.json \
+  --vectors path/to/test-vectors.json \
+  --out-key OUT1 \
+  --out-kind any \
+  --diagnose
+```
+
+By default preflight treats `OUT1: null` as a failed output gate. Use
+`--allow-null-out` only when the task contract explicitly permits null output.
+
 Apply the first concrete fix from `diagnostics.issues`, then rerun preflight.
 If `firstFixRecipe` is present, prefer it over ad-hoc probing.
 

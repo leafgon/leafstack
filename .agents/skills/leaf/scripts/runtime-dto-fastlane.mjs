@@ -8,7 +8,7 @@ import { summarizeRuntimeFailure } from "./lib/runtime-error-diagnostics.mjs";
 
 const usage = () => {
   console.error(
-    "usage: runtime-dto-fastlane.mjs --graph <graph.json> [--in1 <number>] [--out-key <key>] [--out-kind any|scalar|vector] [--out-length <n>] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-version-check] [--quiet] [--json-indent <n>] [--log-file <path>]",
+    "usage: runtime-dto-fastlane.mjs --graph <graph.json> [--in1 <number>] [--out-key <key>] [--out-kind any|scalar|vector] [--out-length <n>] [--vectors <vectors.json>] [--required <required-edges.json>] [--allow-null-out] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-version-check] [--quiet] [--json-indent <n>] [--log-file <path>]",
   );
 };
 
@@ -28,6 +28,8 @@ const parseArgs = (argv) => {
     "--out-key",
     "--out-kind",
     "--out-length",
+    "--vectors",
+    "--required",
     "--version",
     "--ghostos-dir",
     "--json-indent",
@@ -36,6 +38,7 @@ const parseArgs = (argv) => {
   const booleanFlags = new Set([
     "--quiet",
     "--skip-version-check",
+    "--allow-null-out",
   ]);
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -73,6 +76,9 @@ const parseArgs = (argv) => {
       typeof options["out-length"] === "string"
         ? parseNonNegativeInteger(options["out-length"], "--out-length")
         : null,
+    vectors: options.vectors ? resolve(options.vectors) : null,
+    required: options.required ? resolve(options.required) : null,
+    allowNullOut: Boolean(options["allow-null-out"]),
     version: options.version,
     ghostosDir: options["ghostos-dir"] ? resolve(options["ghostos-dir"]) : null,
     skipVersionCheck: Boolean(options["skip-version-check"]),
@@ -119,6 +125,9 @@ try {
   ];
 
   if (Number.isInteger(options.outLength)) args.push("--out-length", String(options.outLength));
+  if (options.vectors) args.push("--vectors", options.vectors);
+  if (options.required) args.push("--required", options.required);
+  if (options.allowNullOut) args.push("--allow-null-out");
   if (options.version) args.push("--version", options.version);
   if (options.ghostosDir) args.push("--ghostos-dir", options.ghostosDir);
   if (options.skipVersionCheck) args.push("--skip-version-check");
@@ -240,6 +249,10 @@ try {
         `--in1 ${options.in1}`,
         `--out-key ${options.outKey}`,
         `--out-kind ${options.outKind}`,
+        ...(Number.isInteger(options.outLength) ? [`--out-length ${options.outLength}`] : []),
+        ...(options.vectors ? [`--vectors ${options.vectors}`] : []),
+        ...(options.required ? [`--required ${options.required}`] : []),
+        ...(options.allowNullOut ? ["--allow-null-out"] : []),
         "--diagnose",
       ].join(" "),
     ],

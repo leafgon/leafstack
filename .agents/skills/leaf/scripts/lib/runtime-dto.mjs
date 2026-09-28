@@ -270,6 +270,34 @@ const getNodeLogic = (node, index) => {
   return logic;
 };
 
+const readsUnsafeParsedHttpResult = (expression) => {
+  const source = String(expression ?? "");
+  if (source.length === 0) return false;
+
+  const directParsePattern = /\(parse\s+\(get\s+[A-Za-z0-9_-]+\s+:result\)\)/;
+  const directNilGuardPattern = /\(isnil\s+\(get\s+[A-Za-z0-9_-]+\s+:result\)\)/;
+
+  if (directParsePattern.test(source) && !directNilGuardPattern.test(source)) {
+    return true;
+  }
+
+  const bindingPattern = /\(def\s+([A-Za-z0-9_-]+)\s+\(get\s+[A-Za-z0-9_-]+\s+:result\)\)/g;
+  for (const match of source.matchAll(bindingPattern)) {
+    const bindingName = match?.[1];
+    if (typeof bindingName !== "string" || bindingName.length === 0) continue;
+
+    const parseBindingPattern = new RegExp(`\\(parse\\s+${bindingName}\\)`);
+    if (!parseBindingPattern.test(source)) continue;
+
+    const nilGuardPattern = new RegExp(`\\(isnil\\s+${bindingName}\\)`);
+    if (!nilGuardPattern.test(source)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
   const outKey = typeof options.outKey === "string" && options.outKey.length > 0 ? options.outKey : "OUT1";
   const issues = [];
@@ -343,6 +371,14 @@ export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
       code: "outflow-node-type-mismatch",
       message: `node '${outKey}' must use leafoutflowport (found '${outNode.leafnodetype ?? "unknown"}')`,
     });
+  } else {
+    const incomingToOutflow = incomingByTarget.get(outKey) ?? [];
+    if (incomingToOutflow.length === 0) {
+      issues.push({
+        code: "outflow-node-missing-incoming",
+        message: `node '${outKey}' must have at least one incoming producer edge`,
+      });
+    }
   }
 
   for (const [uuid, meta] of nodeMetaByUuid.entries()) {
@@ -358,6 +394,32 @@ export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
           code: "leaflisp-literal-shell-template",
           message: `leaflisp node '${uuid}' contains shell-template syntax (\${...}); LEAFlisp does not expand shell env templates at runtime`,
         });
+      }
+
+      if (/\bbottle\s+["']wait["']/.test(expression)) {
+        issues.push({
+          code: "leaflisp-wait-bottle-fallback",
+          message: `leaflisp node '${uuid}' emits bottle "wait" fallback; use deterministic readiness wiring and avoid placeholder wait bottles`,
+        });
+      }
+
+      if (/\(if\s+\(islist\s+[^\s)]+\)\s+0\s+[^\s)]+\)/.test(expression)) {
+        issues.push({
+          code: "leaflisp-lossy-list-coercion",
+          message: `leaflisp node '${uuid}' collapses list payloads to scalar 0; preserve list values or branch with explicit non-lossy shaping`,
+        });
+      }
+
+      if (expression.includes(":IN1") && incoming.length > 0 && /\(if\s+\(isnil\s+[^)]+\)/.test(expression)) {
+        const incomingLeafTypes = incoming.map((entry) => nodeMetaByUuid.get(entry.sourceUuid)?.leafnodetype ?? null);
+        const hasInflowSource = incomingLeafTypes.some((leafType) => leafType === "leafinflowport");
+        const hasNonInflowSource = incomingLeafTypes.some((leafType) => typeof leafType === "string" && leafType !== "leafinflowport");
+        if (!hasInflowSource && hasNonInflowSource) {
+          issues.push({
+            code: "leaflisp-nonsource-in1-reread",
+            message: `leaflisp node '${uuid}' re-reads :IN1 from transformed upstream payloads; consume upstream transformed values explicitly instead of re-extracting root input keys`,
+          });
+        }
       }
 
       for (const rule of [
@@ -510,10 +572,10 @@ export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
         });
       }
 
-      if (/\bparse\s+\(get\s+payload\s+:result\)/.test(parseExpression)) {
+      if (readsUnsafeParsedHttpResult(parseExpression)) {
         issues.push({
           code: "http-parse-target-unsafe-result-parse",
-          message: `parse node '${targetUuid}' uses (parse (get payload :result)) without nil-safe guard; unwrap bottle/content and guard missing result before parse`,
+          message: `parse node '${targetUuid}' parses :result without nil-safe guard; unwrap bottle/content and guard missing result before parse`,
         });
       }
 
