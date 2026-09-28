@@ -8,7 +8,7 @@ import { summarizeRuntimeFailure } from "./lib/runtime-error-diagnostics.mjs";
 
 const usage = () => {
   console.error(
-    "usage: runtime-dto-fastlane.mjs --graph <graph.json> [--in1 <number>] [--out-key <key>] [--out-kind any|scalar|vector] [--out-length <n>] [--vectors <vectors.json>] [--required <required-edges.json>] [--allow-null-out] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-version-check] [--quiet] [--json-indent <n>] [--log-file <path>]",
+    "usage: runtime-dto-fastlane.mjs --graph <graph.json> [--in1 <number>] [--out-key <key>] [--out-kind any|scalar|vector] [--out-length <n>] [--vectors <vectors.json>] [--required <required-edges.json>] [--parse-safety off|balanced|strict] [--allow-null-out] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-version-check] [--quiet] [--json-indent <n>] [--log-file <path>]",
   );
 };
 
@@ -30,6 +30,7 @@ const parseArgs = (argv) => {
     "--out-length",
     "--vectors",
     "--required",
+    "--parse-safety",
     "--version",
     "--ghostos-dir",
     "--json-indent",
@@ -67,6 +68,11 @@ const parseArgs = (argv) => {
     throw new Error(`--in1 must be numeric (got '${options.in1}')`);
   }
 
+  const parseSafety = String(options["parse-safety"] ?? "balanced").trim().toLowerCase();
+  if (!["off", "balanced", "strict"].includes(parseSafety)) {
+    throw new Error("--parse-safety must be one of off|balanced|strict");
+  }
+
   return {
     graph: resolve(options.graph),
     in1,
@@ -78,6 +84,7 @@ const parseArgs = (argv) => {
         : null,
     vectors: options.vectors ? resolve(options.vectors) : null,
     required: options.required ? resolve(options.required) : null,
+    parseSafety,
     allowNullOut: Boolean(options["allow-null-out"]),
     version: options.version,
     ghostosDir: options["ghostos-dir"] ? resolve(options["ghostos-dir"]) : null,
@@ -120,6 +127,7 @@ try {
     "--in1", String(options.in1),
     "--out-key", options.outKey,
     "--out-kind", options.outKind,
+    "--parse-safety", options.parseSafety,
     "--diagnose",
     "--quiet",
   ];
@@ -249,6 +257,7 @@ try {
         `--in1 ${options.in1}`,
         `--out-key ${options.outKey}`,
         `--out-kind ${options.outKind}`,
+        `--parse-safety ${options.parseSafety}`,
         ...(Number.isInteger(options.outLength) ? [`--out-length ${options.outLength}`] : []),
         ...(options.vectors ? [`--vectors ${options.vectors}`] : []),
         ...(options.required ? [`--required ${options.required}`] : []),

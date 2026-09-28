@@ -1199,6 +1199,306 @@ test("preflight-runtime-dto blocks non-source IN1 reread fallback", async () => 
   }
 });
 
+test("preflight-runtime-dto warns on unproven raw (parse inport) in balanced mode", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
+  const fakeGhostosDirectory = join(temporaryDirectory, "ghostos");
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  const rawParseFixture = {
+    domain: "example",
+    appid: "raw-parse-inport-warning-fixture",
+    nodes: [
+      {
+        uuid: "IN1",
+        leafnodetype: "leafinflowport",
+        data: encode({ leaf: { logic: { type: "leafinflowport", args: {} } } }),
+        out_edges: [
+          {
+            uuid: "E1",
+            source: { uuid: "IN1" },
+            target: { uuid: "REQ_HTTP" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "REQ_HTTP",
+        leafnodetype: "leaflisp",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leaflisp",
+              args: {
+                lispexpression: "(do (def x (parse inport)) (def request {:uri \"http://127.0.0.1:8080/v1/operations\" :mode \"post\" :header {:content-type \"application/json\"} :data {:profile \"profile-001\" :operation \"add\" :operands [x 2]}}) (bottle \"http-request\" request))",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E2",
+            source: { uuid: "REQ_HTTP" },
+            target: { uuid: "HTTP_ARITH" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "HTTP_ARITH",
+        leafnodetype: "leafelement",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leafelement",
+              args: {
+                elementname: "http",
+                elementconfig: "",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E3",
+            source: { uuid: "HTTP_ARITH" },
+            target: { uuid: "PARSE_HTTP" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "PARSE_HTTP",
+        leafnodetype: "leaflisp",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leaflisp",
+              args: {
+                lispexpression: "(do (def payloadzero (if (isbottle inport) (get inport :_content) inport)) (def payload (if (isbottle payloadzero) (get payloadzero :_content) payloadzero)) (def result (get payload :result)) (if (isnil result) nil result))",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E4",
+            source: { uuid: "PARSE_HTTP" },
+            target: { uuid: "OUT1" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "OUT1",
+        leafnodetype: "leafoutflowport",
+        data: encode({ leaf: { logic: { type: "leafoutflowport", args: {} } } }),
+        out_edges: [],
+      },
+    ],
+  };
+
+  try {
+    await mkdir(join(fakeGhostosDirectory, "src"), { recursive: true });
+    await writeFile(
+      join(fakeGhostosDirectory, "package.json"),
+      `${JSON.stringify({ name: "ghostos", version: ghostosLatest, type: "module" }, null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(fakeGhostosDirectory, "src", "index.core.js"),
+      "export const executeLEAFGraph = async () => ({ OUT1: 13 });\n",
+      "utf8",
+    );
+
+    await writeFile(graphPath, `${JSON.stringify(rawParseFixture, null, 2)}\n`, "utf8");
+    const result = await run([
+      "--graph",
+      graphPath,
+      "--out-key",
+      "OUT1",
+      "--ghostos-dir",
+      fakeGhostosDirectory,
+      "--version",
+      ghostosLatest,
+      "--diagnose",
+    ]);
+
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.pass, true);
+    assert.equal(output.parseSafety, "balanced");
+    assert.ok(!output.checks.includes("static-contract:leaflisp-raw-parse-inport-unproven-scalar"));
+    assert.ok(
+      output.staticContract.warnings
+        .map((entry) => entry.code)
+        .includes("leaflisp-raw-parse-inport-unproven-scalar"),
+    );
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("preflight-runtime-dto escalates unproven raw (parse inport) in strict mode", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  const strictRawParseFixture = {
+    domain: "example",
+    appid: "raw-parse-inport-strict-fixture",
+    nodes: [
+      {
+        uuid: "IN1",
+        leafnodetype: "leafinflowport",
+        data: encode({ leaf: { logic: { type: "leafinflowport", args: {} } } }),
+        out_edges: [
+          {
+            uuid: "E1",
+            source: { uuid: "IN1" },
+            target: { uuid: "PARSE_NODE" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "PARSE_NODE",
+        leafnodetype: "leaflisp",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leaflisp",
+              args: {
+                lispexpression: "(do (def x inport) (parse x))",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E2",
+            source: { uuid: "PARSE_NODE" },
+            target: { uuid: "OUT1" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "OUT1",
+        leafnodetype: "leafoutflowport",
+        data: encode({ leaf: { logic: { type: "leafoutflowport", args: {} } } }),
+        out_edges: [],
+      },
+    ],
+  };
+
+  try {
+    await writeFile(graphPath, `${JSON.stringify(strictRawParseFixture, null, 2)}\n`, "utf8");
+    const result = await run([
+      "--graph",
+      graphPath,
+      "--out-key",
+      "OUT1",
+      "--parse-safety",
+      "strict",
+      "--diagnose",
+    ]);
+
+    assert.equal(result.status, 1, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.pass, false);
+    assert.equal(output.parseSafety, "strict");
+    assert.ok(output.checks.includes("static-contract:leaflisp-raw-parse-inport-unproven-scalar"));
+    assert.equal(output.steps.smoke, null);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("preflight-runtime-dto blocks raw (parse inport) when upstream is non-scalar-risk", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  const nonscalarRiskFixture = {
+    domain: "example",
+    appid: "raw-parse-inport-nonscalar-risk-fixture",
+    nodes: [
+      {
+        uuid: "IN1",
+        leafnodetype: "leafinflowport",
+        data: encode({ leaf: { logic: { type: "leafinflowport", args: {} } } }),
+        out_edges: [
+          {
+            uuid: "E1",
+            source: { uuid: "IN1" },
+            target: { uuid: "MIX" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "MIX",
+        leafnodetype: "leafmixflow",
+        data: encode({ leaf: { logic: { type: "leafmixflow", args: {} } } }),
+        out_edges: [
+          {
+            uuid: "E2",
+            source: { uuid: "MIX" },
+            target: { uuid: "PARSE_NODE" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "PARSE_NODE",
+        leafnodetype: "leaflisp",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leaflisp",
+              args: {
+                lispexpression: "(parse inport)",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E3",
+            source: { uuid: "PARSE_NODE" },
+            target: { uuid: "OUT1" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "OUT1",
+        leafnodetype: "leafoutflowport",
+        data: encode({ leaf: { logic: { type: "leafoutflowport", args: {} } } }),
+        out_edges: [],
+      },
+    ],
+  };
+
+  try {
+    await writeFile(graphPath, `${JSON.stringify(nonscalarRiskFixture, null, 2)}\n`, "utf8");
+    const result = await run([
+      "--graph",
+      graphPath,
+      "--out-key",
+      "OUT1",
+      "--diagnose",
+    ]);
+
+    assert.equal(result.status, 1, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.pass, false);
+    assert.equal(output.parseSafety, "balanced");
+    assert.ok(output.checks.includes("static-contract:leaflisp-raw-parse-inport-nonscalar-risk"));
+    assert.equal(output.steps.smoke, null);
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
 test("preflight-runtime-dto requires incoming producer edge for outflow node", async () => {
   const temporaryDirectory = await mkdtemp(join(skillDirectory, ".preflight-runtime-dto-test-"));
   const graphPath = join(temporaryDirectory, "graph.json");

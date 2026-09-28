@@ -200,3 +200,76 @@ test("runtime-dto-fastlane forwards allow-null-out to preflight", async () => {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }
 });
+
+test("runtime-dto-fastlane forwards parse-safety mode to preflight", async () => {
+  const temporaryDirectory = await mkdtemp(join(skillDirectory, ".runtime-dto-fastlane-test-"));
+  const graphPath = join(temporaryDirectory, "graph.json");
+
+  const rawParseFixture = {
+    domain: "example",
+    appid: "fastlane-parse-safety-fixture",
+    nodes: [
+      {
+        uuid: "IN1",
+        leafnodetype: "leafinflowport",
+        data: encode({ leaf: { logic: { type: "leafinflowport", args: {} } } }),
+        out_edges: [
+          {
+            uuid: "E1",
+            source: { uuid: "IN1" },
+            target: { uuid: "PARSE_NODE" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "PARSE_NODE",
+        leafnodetype: "leaflisp",
+        data: encode({
+          leaf: {
+            logic: {
+              type: "leaflisp",
+              args: {
+                lispexpression: "(parse inport)",
+              },
+            },
+          },
+        }),
+        out_edges: [
+          {
+            uuid: "E2",
+            source: { uuid: "PARSE_NODE" },
+            target: { uuid: "OUT1" },
+            data: encode({ leaf: { logic: { type: "leafdataedge", args: {} } } }),
+          },
+        ],
+      },
+      {
+        uuid: "OUT1",
+        leafnodetype: "leafoutflowport",
+        data: encode({ leaf: { logic: { type: "leafoutflowport", args: {} } } }),
+        out_edges: [],
+      },
+    ],
+  };
+
+  try {
+    await writeFile(graphPath, `${JSON.stringify(rawParseFixture, null, 2)}\n`, "utf8");
+
+    const result = await run([
+      "--graph",
+      graphPath,
+      "--parse-safety",
+      "strict",
+      "--quiet",
+    ]);
+
+    assert.equal(result.status, 1, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.pass, false);
+    assert.equal(output.preflight.parseSafety, "strict");
+    assert.ok(output.preflight.checks.includes("static-contract:leaflisp-raw-parse-inport-unproven-scalar"));
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});

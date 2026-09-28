@@ -70,6 +70,13 @@ export const issueCatalog = [
     action: "Use nil-safe parser flow: unwrap bottle/content, read :result, guard nil before parse/coercion, and avoid unchecked pair[0/1] assumptions.",
   },
   {
+    code: "leaflisp_invalid_number_object",
+    pattern: /Invalid number:\s*"\[object Object\]"|Invalid number:\s*\[object Object\]/i,
+    severity: "error",
+    meaning: "Leaflisp parse/coercion received an object payload where a scalar was expected.",
+    action: "Avoid raw (parse inport) for non-scalar-prone upstream payloads; unwrap/select scalar value first, then parse/coerce.",
+  },
+  {
     code: "operation_not_found",
     pattern: /OPERATION_NOT_FOUND|Unknown operation key for profile/i,
     severity: "error",
@@ -166,6 +173,20 @@ export const issueCatalog = [
     severity: "error",
     meaning: "HTTP request/parse contract is incomplete for leafelement(http).",
     action: "Ensure request bottle has :uri/:mode/:data/:operation/:operands and parser unwraps _content then reads :result.",
+  },
+  {
+    code: "leaflisp_raw_parse_inport_nonscalar_risk",
+    pattern: /leaflisp-raw-parse-inport-nonscalar-risk/i,
+    severity: "error",
+    meaning: "Leaflisp node parses inport directly even though upstream shape is non-scalar-prone.",
+    action: "Add explicit extraction (bottle/content or keyed scalar) before (parse inport).",
+  },
+  {
+    code: "leaflisp_raw_parse_inport_unproven_scalar",
+    pattern: /leaflisp-raw-parse-inport-unproven-scalar/i,
+    severity: "warning",
+    meaning: "Leaflisp node parses inport directly without proven scalar contract.",
+    action: "Keep concise parse only when upstream scalar contract is explicit; otherwise add extraction/guard before parse.",
   },
 ];
 
