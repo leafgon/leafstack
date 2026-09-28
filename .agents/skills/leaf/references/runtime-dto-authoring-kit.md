@@ -49,6 +49,7 @@ node .agents/skills/leaf/scripts/runtime-dto-fastlane.mjs \
   --in1 11 \
   --out-key OUT1 \
   --out-kind any \
+  --parse-safety balanced \
   --quiet \
   --log-file .tmp/leaf-fastlane.log
 ```
@@ -168,6 +169,7 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   --in1 11 \
   --out-key OUT1 \
   --out-kind scalar \
+  --parse-safety balanced \
   --required path/to/required-edges.json \
   --vectors path/to/test-vectors.json \
   --diagnose \
@@ -182,6 +184,7 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   --graph path/to/graph.json \
   --out-key OUT1 \
   --out-kind vector \
+  --parse-safety balanced \
   --out-length 6 \
   --diagnose \
   --quiet

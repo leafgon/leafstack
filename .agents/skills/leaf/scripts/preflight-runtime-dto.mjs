@@ -9,7 +9,7 @@ import { classifyRuntimeIssues, extractRefnodeFromText } from "./lib/runtime-err
 
 const usage = () => {
   console.error(
-    "usage: preflight-runtime-dto.mjs --graph <graph.json> [--in1 <number>] [--out-key <key>] [--out-kind any|scalar|vector] [--out-length <n>] [--vectors <vectors.json>] [--required <required-edges.json>] [--allow-null-out] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-version-check] [--diagnose] [--quiet] [--json-indent <n>] [--log-file <path>]",
+    "usage: preflight-runtime-dto.mjs --graph <graph.json> [--in1 <number>] [--out-key <key>] [--out-kind any|scalar|vector] [--out-length <n>] [--vectors <vectors.json>] [--required <required-edges.json>] [--parse-safety off|balanced|strict] [--allow-null-out] [--version <npm-version>] [--ghostos-dir <source-dir>] [--skip-version-check] [--diagnose] [--quiet] [--json-indent <n>] [--log-file <path>]",
   );
 };
 
@@ -31,6 +31,7 @@ const parseArgs = (argv) => {
     "--out-length",
     "--vectors",
     "--required",
+    "--parse-safety",
     "--version",
     "--ghostos-dir",
     "--json-indent",
@@ -78,6 +79,11 @@ const parseArgs = (argv) => {
   const outLengthRaw = String(options["out-length"] ?? "").trim();
   const outLength = outLengthRaw.length === 0 ? null : parseNonNegativeInteger(outLengthRaw, "--out-length");
 
+  const parseSafety = String(options["parse-safety"] ?? "balanced").trim().toLowerCase();
+  if (!["off", "balanced", "strict"].includes(parseSafety)) {
+    throw new Error("--parse-safety must be one of off|balanced|strict");
+  }
+
   return {
     graph: resolve(options.graph),
     in1: in1Value,
@@ -86,6 +92,7 @@ const parseArgs = (argv) => {
     outLength,
     vectors: options.vectors ? resolve(options.vectors) : null,
     required: options.required ? resolve(options.required) : null,
+    parseSafety,
     allowNullOut: Boolean(options["allow-null-out"]),
     version: options.version,
     ghostosDir: options["ghostos-dir"] ? resolve(options["ghostos-dir"]) : null,
@@ -137,6 +144,7 @@ const buildPreflightCommand = (options) => {
     `--in1 ${quoteArg(options.in1)}`,
     `--out-key ${quoteArg(options.outKey)}`,
     `--out-kind ${quoteArg(options.outKind)}`,
+    `--parse-safety ${quoteArg(options.parseSafety)}`,
     "--diagnose",
   ];
   if (Number.isInteger(options.outLength)) command.push(`--out-length ${quoteArg(options.outLength)}`);
@@ -290,6 +298,22 @@ const buildFirstFixRecipe = ({ checks, diagnostics, staticContract, outKey, opti
           "Rerun preflight.",
         ],
       },
+      "leaflisp-raw-parse-inport-nonscalar-risk": {
+        summary: "Raw parse(inport) is fed by non-scalar-risk payload shape.",
+        steps: [
+          "Unwrap/select scalar value from upstream payload before parse (for example bottle :_content or keyed field).",
+          "Keep raw parse(inport) only when scalar contract is explicit and enforced upstream.",
+          "Rerun preflight.",
+        ],
+      },
+      "leaflisp-raw-parse-inport-unproven-scalar": {
+        summary: "Raw parse(inport) is used without proven scalar contract.",
+        steps: [
+          "If input is guaranteed scalar, keep concise parse and document/enforce contract upstream.",
+          "Otherwise add explicit extraction/guard before parse.",
+          "Rerun preflight.",
+        ],
+      },
       "http-parse-target-missing-result-read": {
         summary: "HTTP parser must read :result from the response payload.",
         steps: [
@@ -379,6 +403,14 @@ const buildFirstFixRecipe = ({ checks, diagnostics, staticContract, outKey, opti
       steps: [
         "Do not use ${...} syntax in LEAFlisp.",
         "Set request payload values directly.",
+        "Rerun preflight.",
+      ],
+    },
+    leaflisp_invalid_number_object: {
+      summary: "Parse received non-scalar object input.",
+      steps: [
+        "Do not parse raw inport when upstream may provide bottle/map payloads.",
+        "Extract scalar field first, then parse/coerce.",
         "Rerun preflight.",
       ],
     },
@@ -551,7 +583,10 @@ try {
   if (validation?.pass) {
     const parsedGraph = JSON.parse(await readFile(options.graph, "utf8"));
     const graph = extractGraph(parsedGraph);
-    staticContract = lintRuntimeDtoHttpContracts(graph, { outKey: options.outKey });
+    staticContract = lintRuntimeDtoHttpContracts(graph, {
+      outKey: options.outKey,
+      parseSafety: options.parseSafety,
+    });
     for (const issue of staticContract.issues) {
       checks.push(`static-contract:${issue.code}`);
     }
@@ -703,6 +738,7 @@ try {
     outKey: options.outKey,
     vectorsPath: options.vectors,
     requiredPath: options.required,
+    parseSafety: options.parseSafety,
     allowNullOut: options.allowNullOut,
     outKindExpected: options.outKind,
     outKindObserved: observedOutKind,

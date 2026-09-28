@@ -36,6 +36,29 @@ For source-stage arithmetic request builders, use explicit keyed extraction:
 Do not assume positional secondary aliases (for example `inport2`) for source
 values.
 
+## Raw `parse(inport)` safety policy
+
+`parse(inport)` (and alias forms such as `(def x inport) ... (parse x)`) are
+allowed when upstream contract guarantees scalar input.
+
+Use preflight parse-safety modes:
+
+- `--parse-safety balanced` (default):
+  - hard-fails only when upstream shape is clearly non-scalar-risk;
+  - warns when scalar contract is unproven.
+- `--parse-safety strict`:
+  - also fails unproven-scalar raw parse patterns.
+
+When upstream may emit bottle/map payloads, extract scalar explicitly before
+parse:
+
+```clojure
+(do
+  (def payload0 (if (isbottle inport) (get inport :_content) inport))
+  (def x (get payload0 :value))
+  (parse x))
+```
+
 ## HTTP parser contract (nil-safe)
 
 Prefer this parser shape for `leafelement(http)` output:

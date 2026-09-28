@@ -17,6 +17,7 @@ node .agents/skills/leaf/scripts/preflight-runtime-dto.mjs \
   --in1 11 \
   --out-key OUT1 \
   --out-kind any \
+  --parse-safety balanced \
   --diagnose
 ```
 
@@ -153,6 +154,42 @@ Fix:
 1. Ensure request expression includes all required keys:
    `:uri`, `:mode`, `:data`, `:operation`, `:operands`.
 2. Keep `:profile` present for deterministic profile selection.
+
+### `static-contract:leaflisp-raw-parse-inport-nonscalar-risk`
+
+Symptom:
+
+- `leaflisp` directly parses `inport`, but upstream shape is non-scalar-risk
+  (for example bottle/map/multi-input mix).
+
+Fix:
+
+1. Extract scalar explicitly (unwrap `:_content`, select key/index) before parse.
+2. Keep direct `parse(inport)` only for explicit scalar contracts.
+
+### `static-contract:leaflisp-raw-parse-inport-unproven-scalar`
+
+Symptom:
+
+- `leaflisp` directly parses `inport` with no proven scalar contract
+  (strict mode fails this; balanced mode warns).
+
+Fix:
+
+1. If scalar is guaranteed, keep concise parse and enforce that contract upstream.
+2. Otherwise add explicit extraction/guard before parse.
+
+### `leaflisp_invalid_number_object`
+
+Symptom:
+
+- Runtime reports `Invalid number: "[object Object]"`.
+
+Fix:
+
+1. Remove raw `parse(inport)` for that node.
+2. Extract scalar field first, then parse/coerce.
+3. Re-run preflight once.
 
 ### `static-contract:http-parse-target-missing-result-read`
 

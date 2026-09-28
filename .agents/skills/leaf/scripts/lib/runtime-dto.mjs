@@ -308,12 +308,112 @@ const isRedundantKeyedMixUnwrap = (expression) => {
   return /\(get\s+[A-Za-z0-9_-]+\s+:[A-Za-z0-9_-]+\)/.test(source);
 };
 
+const parseSafetyModes = new Set(["off", "balanced", "strict"]);
+
+const getRawParseInportUsage = (expression) => {
+  const source = String(expression ?? "");
+  if (source.length === 0) {
+    return {
+      usesRawParseInport: false,
+      aliases: [],
+    };
+  }
+
+  const aliases = new Set();
+  const defAliasPattern = /\(def\s+([A-Za-z0-9_-]+)\s+([A-Za-z0-9_-]+)\)/g;
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    defAliasPattern.lastIndex = 0;
+    for (const match of source.matchAll(defAliasPattern)) {
+      const targetName = match?.[1];
+      const sourceName = match?.[2];
+      if (typeof targetName !== "string" || typeof sourceName !== "string") continue;
+      if (sourceName !== "inport" && !aliases.has(sourceName)) continue;
+      if (aliases.has(targetName)) continue;
+      aliases.add(targetName);
+      changed = true;
+    }
+  }
+
+  if (/\(parse\s+inport\)/.test(source)) {
+    return {
+      usesRawParseInport: true,
+      aliases: [],
+    };
+  }
+
+  const aliasHits = [];
+  for (const alias of aliases) {
+    const aliasPattern = new RegExp(`\\(parse\\s+${alias}\\)`);
+    if (!aliasPattern.test(source)) continue;
+    aliasHits.push(alias);
+  }
+
+  return {
+    usesRawParseInport: aliasHits.length > 0,
+    aliases: aliasHits,
+  };
+};
+
+const classifyRawParseInportRisk = ({ incoming, nodeMetaByUuid }) => {
+  if (!Array.isArray(incoming) || incoming.length !== 1) {
+    return {
+      risk: "nonscalar-risk",
+      details: `node receives ${Array.isArray(incoming) ? incoming.length : 0} upstream edges`,
+    };
+  }
+
+  const sourceUuid = incoming[0]?.sourceUuid;
+  if (typeof sourceUuid !== "string" || sourceUuid.length === 0) {
+    return {
+      risk: "unknown",
+      details: "upstream source uuid is missing",
+    };
+  }
+
+  const sourceMeta = nodeMetaByUuid.get(sourceUuid);
+  if (!sourceMeta || sourceMeta.decodeError) {
+    return {
+      risk: "unknown",
+      details: `upstream source '${sourceUuid}' metadata is unavailable`,
+    };
+  }
+
+  const sourceLeafType = typeof sourceMeta.leafnodetype === "string" ? sourceMeta.leafnodetype : "unknown";
+  if (["leafelement", "leafmixflow", "leafbottle"].includes(sourceLeafType)) {
+    return {
+      risk: "nonscalar-risk",
+      details: `upstream '${sourceUuid}' type '${sourceLeafType}' often emits envelope/map payloads`,
+    };
+  }
+
+  if (sourceLeafType === "leaflisp") {
+    const sourceExpression = String(sourceMeta.logic?.args?.lispexpression ?? "");
+    if (/\bbottle\s+["']/.test(sourceExpression)) {
+      return {
+        risk: "nonscalar-risk",
+        details: `upstream leaflisp '${sourceUuid}' emits a bottle payload`,
+      };
+    }
+  }
+
+  return {
+    risk: "unknown",
+    details: `upstream '${sourceUuid}' type '${sourceLeafType}' does not prove a scalar contract`,
+  };
+};
+
 export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
   const outKey = typeof options.outKey === "string" && options.outKey.length > 0 ? options.outKey : "OUT1";
+  const requestedParseSafety = typeof options.parseSafety === "string" ? options.parseSafety.trim().toLowerCase() : "balanced";
+  const parseSafety = parseSafetyModes.has(requestedParseSafety) ? requestedParseSafety : "balanced";
   const issues = [];
   const warnings = [];
   const facts = {
     outKey,
+    parseSafety,
     nodeCount: 0,
     httpNodeCount: 0,
     leaflispNodeCount: 0,
@@ -429,6 +529,34 @@ export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
             code: "leaflisp-nonsource-in1-reread",
             message: `leaflisp node '${uuid}' re-reads :IN1 from transformed upstream payloads; consume upstream transformed values explicitly instead of re-extracting root input keys`,
           });
+        }
+      }
+
+      if (parseSafety !== "off") {
+        const parseUsage = getRawParseInportUsage(expression);
+        if (parseUsage.usesRawParseInport) {
+          const risk = classifyRawParseInportRisk({ incoming, nodeMetaByUuid });
+          const aliasHint = parseUsage.aliases.length > 0
+            ? ` via alias(es) ${parseUsage.aliases.map((name) => `'${name}'`).join(", ")}`
+            : "";
+
+          if (risk.risk === "nonscalar-risk") {
+            issues.push({
+              code: "leaflisp-raw-parse-inport-nonscalar-risk",
+              message: `leaflisp node '${uuid}' uses raw parse of inport${aliasHint} with non-scalar-risk upstream shape (${risk.details}); unwrap/select scalar value before parse`,
+            });
+          } else if (risk.risk === "unknown") {
+            const finding = {
+              code: "leaflisp-raw-parse-inport-unproven-scalar",
+              message: `leaflisp node '${uuid}' uses raw parse of inport${aliasHint} but scalar contract is unproven (${risk.details}); keep raw parse only when scalar input is guaranteed, otherwise add explicit extraction`,
+            };
+
+            if (parseSafety === "strict") {
+              issues.push(finding);
+            } else {
+              warnings.push(finding);
+            }
+          }
         }
       }
 
