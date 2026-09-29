@@ -645,7 +645,7 @@ test("preflight-runtime-dto blocks unsupported leaflisp dialect tokens", async (
             logic: {
               type: "leaflisp",
               args: {
-                lispexpression: "(do (def xs (list inport2)) xs)",
+                lispexpression: "(do (def payload import) (def xs (list inport2)) xs)",
               },
             },
           },
@@ -685,6 +685,7 @@ test("preflight-runtime-dto blocks unsupported leaflisp dialect tokens", async (
     assert.equal(output.completion.readyToSubmit, false);
     assert.ok(output.checks.includes("static-contract:leaflisp-unsupported-token-list"));
     assert.ok(output.checks.includes("static-contract:leaflisp-unsupported-token-inport2"));
+    assert.ok(output.checks.includes("static-contract:leaflisp-unsupported-token-import"));
     assert.equal(output.steps.smoke, null);
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });

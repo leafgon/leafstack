@@ -10,9 +10,13 @@ These patterns are not valid LEAFlisp authoring shortcuts in this skill:
 - `(vector ...)`
 - `(array ...)`
 - `inport2` (or other implicit extra inport aliases)
+- `import` (mis-spelled input binding; use `inport`)
 
 `preflight-runtime-dto.mjs` now blocks these patterns as static contract
 violations.
+
+If runtime reports `Undefined identifier: 'import'`, replace every LEAFlisp
+`import` reference with `inport`.
 
 ## Shell-template strings are not runtime env expansion
 

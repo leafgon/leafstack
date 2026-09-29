@@ -565,6 +565,7 @@ export const lintRuntimeDtoHttpContracts = (graph, options = {}) => {
         { code: "leaflisp-unsupported-token-vector", pattern: /\(vector\b/, token: "(vector ...)" },
         { code: "leaflisp-unsupported-token-array", pattern: /\(array\b/, token: "(array ...)" },
         { code: "leaflisp-unsupported-token-inport2", pattern: /\binport2\b/, token: "inport2" },
+        { code: "leaflisp-unsupported-token-import", pattern: /\bimport\b/, token: "import (use inport)" },
       ]) {
         if (!rule.pattern.test(expression)) continue;
         issues.push({

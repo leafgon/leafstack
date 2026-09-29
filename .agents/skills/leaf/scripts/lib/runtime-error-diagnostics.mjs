@@ -56,6 +56,13 @@ export const issueCatalog = [
     action: "Use LEAFlisp core forms only. Run preflight-runtime-dto.mjs --diagnose to catch token issues before smoke execution.",
   },
   {
+    code: "leaflisp_undefined_identifier_import",
+    pattern: /Undefined identifier:\s*['"]import['"]/i,
+    severity: "error",
+    meaning: "Leaflisp expression references `import`, but runtime input binding is `inport`.",
+    action: "Replace `import` references with `inport`, then rerun preflight-runtime-dto.mjs --diagnose.",
+  },
+  {
     code: "leaflisp_literal_shell_template",
     pattern: /\$\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\}|literal shell-template syntax/i,
     severity: "error",
