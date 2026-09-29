@@ -40,6 +40,9 @@ version.
 4. Executes the combined source in PocketLisp.
 5. Converts boxed hash maps, vectors, strings, numbers, booleans, and `Nothing` back to JS values.
 
+Input binding contract: use `inport` exactly. `import` is not a LEAFlisp
+binding and evaluates as an undefined identifier.
+
 Example:
 
 ```js
@@ -105,6 +108,8 @@ Do not invent globals. Confirm whether the current execution surface supplies:
 - `return`/`outport`
 - trace/probe callbacks
 - graph IO helpers
+
+Spelling matters: `inport` is the runtime input binding. Do not use `import`.
 
 Bottle-shaped inputs use:
 

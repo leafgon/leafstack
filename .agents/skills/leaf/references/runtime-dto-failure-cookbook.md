@@ -207,12 +207,14 @@ Fix:
 
 Symptom:
 
-- Expression uses non-LEAFlisp forms (`list`, `vector`, `array`, `inport2`).
+- Expression uses non-LEAFlisp forms (`list`, `vector`, `array`, `inport2`) or
+  mis-spells input binding as `import`.
 
 Fix:
 
 1. Rewrite with supported LEAFlisp core forms.
-2. For joins, use bottle naming and `leafmixflow` keyed merge.
+2. Replace `import` with `inport` when reading node input.
+3. For joins, use bottle naming and `leafmixflow` keyed merge.
 
 ### `leaflisp-literal-shell-template` or `http-request-source-literal-shell-template`
 

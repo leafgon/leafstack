@@ -362,6 +362,14 @@ const buildFirstFixRecipe = ({ checks, diagnostics, staticContract, outKey, opti
           "Rerun preflight.",
         ],
       },
+      "leaflisp-unsupported-token-import": {
+        summary: "Leaflisp uses `import`; runtime input binding is `inport`.",
+        steps: [
+          "Replace `import` with `inport` in LEAFlisp expressions.",
+          "Keep input reads explicit (for example `(get inport :IN1)` or nil-safe bottle/content unwrap).",
+          "Rerun preflight.",
+        ],
+      },
     };
 
     if (staticMap[code]) {
@@ -393,9 +401,16 @@ const buildFirstFixRecipe = ({ checks, diagnostics, staticContract, outKey, opti
     leaflisp_unsupported_tokens: {
       summary: "Replace unsupported LEAFlisp tokens with supported core forms.",
       steps: [
-        "Remove list/vector/array/inport2 token usage.",
+        "Remove list/vector/array/inport2/import token usage.",
         "For joins, bottle upstream values and merge via leafmixflow.",
         "Rerun preflight.",
+      ],
+    },
+    leaflisp_undefined_identifier_import: {
+      summary: "Leaflisp references `import`; replace with `inport`.",
+      steps: [
+        "Rename every LEAFlisp input symbol `import` to `inport`.",
+        "Re-run preflight to confirm OUT key and scalar/vector contract checks.",
       ],
     },
     leaflisp_literal_shell_template: {
