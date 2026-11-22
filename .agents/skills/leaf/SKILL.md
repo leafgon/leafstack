@@ -49,6 +49,7 @@ Run the environment survey before mutations when needed:
 - Read [references/blob-storage.md](references/blob-storage.md) before storing files through a `leafelement(blob)` spelldef or reading blob metadata.
 - Read [references/api-tokens.md](references/api-tokens.md) before creating, changing, rotating, revoking, or using a `leafelement(token)` pattern.
 - Read [references/multi-graph-batches.md](references/multi-graph-batches.md) before offline JSON authoring, constructing local multi-domain/app graph files, or applying a CRUD batch.
+- Read [references/spelldef-test-harness.md](references/spelldef-test-harness.md) when reproducing browser `leafspelldef` menu/test paths locally.
 - Use `$leaf-blob-api` when the task is direct Blob API request/response troubleshooting rather than graph-program authoring.
 
 ## Use the offline JSON authoring path
@@ -84,6 +85,16 @@ Execute a local graph fixture with GhostOS `executeLEAFGraph`:
 node .agents/skills/leaf/scripts/run-leaf-graph.mjs \
   --graph path/to/graph.json \
   --refnode target-node-uuid \
+  --input path/to/input.json
+```
+
+Replicate browser `leafspelldef` menu/test invocation from local fixtures:
+
+```sh
+node .agents/skills/leaf/scripts/run-leafspelldef-test.mjs \
+  --graph path/to/graph.json \
+  --target-nodeuuid <leafspelldef-uuid> \
+  --entry-spellname <test-spell-name> \
   --input path/to/input.json
 ```
 

@@ -331,6 +331,20 @@ node .agents/skills/leaf/scripts/run-leaf-graph.mjs \
   --input input.json
 ```
 
+Reproduce browser `leafspelldef` menu/test behavior locally (wrapper around
+`run-leaf-graph.mjs`):
+
+```sh
+node .agents/skills/leaf/scripts/run-leafspelldef-test.mjs \
+  --graph graph.json \
+  --target-nodeuuid <leafspelldef-uuid> \
+  --entry-spellname <test-spell-name> \
+  --input input.json
+```
+
+Use `--variant cast-spell` when you need direct wildcard-dispatch bottle
+construction. See [spelldef-test-harness.md](spelldef-test-harness.md).
+
 Add runtime DTO gates before larger benchmark or contract runs:
 
 ```sh
