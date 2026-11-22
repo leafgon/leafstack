@@ -212,6 +212,21 @@ Inspect a saved graph fixture directly:
 node .agents/skills/leaf/scripts/inspect-leaf-graph.mjs path/to/graph.json
 ```
 
+### Reproduce browser `leafspelldef` test invocation locally
+
+Run a general-purpose harness that emulates browser menu/test payload wiring:
+
+```bash
+node .agents/skills/leaf/scripts/run-leafspelldef-test.mjs \
+  --graph sessions/breezyforest-tests.graph.json \
+  --target-nodeuuid ce36aee2-7e1e-4a84-ba65-6db66e0da0cb \
+  --entry-spellname test-hpc-element \
+  --input sessions/hpc-intent.json
+```
+
+Use `--variant cast-spell` for direct wildcard dispatch payload construction.
+See the [spelldef test harness reference](.agents/skills/leaf/references/spelldef-test-harness.md).
+
 ### Plan and apply graph changes
 
 Plan a batch without writing:
@@ -292,6 +307,7 @@ artifacts belong in ignored `artifacts/` or `.tmp/`, not in commits.
 - [SPA host pattern](.agents/skills/leaf/references/spa-pattern.md)
 - [Blob storage](.agents/skills/leaf/references/blob-storage.md)
 - [Browser capture](.agents/skills/leaf/references/browser-capture.md)
+- [Spelldef test harness](.agents/skills/leaf/references/spelldef-test-harness.md)
 
 ## Validate this repository
 

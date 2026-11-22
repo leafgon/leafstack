@@ -123,6 +123,7 @@ Use this skill package as the reference set:
 - `references/jsonld-workflow.md`: JSON-LD source authoring and deterministic conversion into executable transport DTO JSON.
 - `references/offline-validation.md`: task-pack DAG contract and acceptance vector validation workflow.
 - `references/multi-graph-batches.md`: batch manifest, digest review, and ordered applies.
+- `references/spelldef-test-harness.md`: local reproduction flow for browser `leafspelldef` menu/test invocation.
 - `references/examples/offline-batch.json`: starter offline manifest for local JSON authoring.
 - `references/examples/offline-graph.json`: starter local graph snapshot paired with the offline manifest.
 - `references/examples/offline-graph.jsonld`: starter JSON-LD source that compiles to executable transport DTO graph JSON.
@@ -136,6 +137,7 @@ Use this skill package as the reference set:
 - `scripts/leaf-jsonld-workflow.mjs`: one-command wrapper for build, inspect, execute, and optional JSON-LD roundtrip export.
 - `scripts/leaf-graph-batch.mjs`: local planning and optional ordered apply tooling.
 - `scripts/run-leaf-graph.mjs`: npm-version-aware `executeLEAFGraph` harness for local graph JSON fixtures.
+- `scripts/run-leafspelldef-test.mjs`: wrapper harness that reproduces browser `leafspelldef` menu/test invocation payloads (`menu-test` and `cast-spell`).
 - `scripts/validate-dag-contract.mjs`: checks required contract data edges/reachability against executable graph JSON.
 - `scripts/run-acceptance-vectors.mjs`: executes vector files against graph fixtures and reports pass/fail.
 - `scripts/run-leaflisp.mjs`: npm-version-aware LEAFlisp execution.
