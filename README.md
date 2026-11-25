@@ -42,6 +42,11 @@ and expected skill files. On Windows, run it in Git Bash or WSL.
 Read `.agents/skills/leaf/SKILL.md` before asking an agent to change a graph.
 For direct Blob API work, also read `.agents/skills/leaf-blob-api/SKILL.md`.
 
+For a new workflow, start with the outcome, routing rules, and named spell
+contracts. The [workflow design guide](.agents/skills/leaf/references/workflow-design.md)
+covers composing calls before their definitions exist, cross-namespace calls,
+and recording test cases on the graph.
+
 ## Runtime DTO quick kit
 
 For executable local graph fixtures (especially benchmark workflows), use the
