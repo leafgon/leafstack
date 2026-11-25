@@ -30,6 +30,7 @@ Run the environment survey before mutations when needed:
 - Read [references/architecture.md](references/architecture.md) for the direct agentic path, authority boundaries, npm version policy, and evidence sources.
 - Read [references/leaf-server-api.md](references/leaf-server-api.md) before any live graph read or node/edge mutation.
 - Read [references/graph-runtime.md](references/graph-runtime.md) for graph JSON, edge planes, component analysis, eta reduction, and execution.
+- Default to top-down workflow design. Read [references/workflow-design.md](references/workflow-design.md) before composing spells, planning conditional routes, or designing workflows with undefined spells.
 - Read [references/data-workflows.md](references/data-workflows.md) before designing multi-stage data workflows, reusable spells, routing, joins, stateful subflows, or anchor-based runtime exclusion and notes.
 - Read [references/leafmemoryio.md](references/leafmemoryio.md) before authoring named memory slots, read/derive/write flows, reset paths, or virgin `forget` nodes.
 - Read [references/leaflisp.md](references/leaflisp.md) before authoring or changing LEAFlisp.

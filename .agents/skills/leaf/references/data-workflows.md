@@ -296,16 +296,9 @@ Use this as the graph equivalent of commenting out a coherent section. Inspect
 the full connected impact before adding or removing the anchor edge; a target
 can exclude more than one visible node.
 
-To keep a human-readable note about a spell definition, use a `leaflisp` node
-as the anchor-edge target:
-
-```text
-leafspelldef ~> note leaflisp
-```
-
-Keep note text non-sensitive and do not depend on the anchored `leaflisp` for
-runtime behavior. It is documentation carried by the graph, not executable
-spell logic.
+For each new or revised spell definition, attach a structured comment and
+example cases using the [spell note pattern](workflow-design.md#record-the-spell-contract-and-examples).
+Keep the note in its own component so the anchor excludes only documentation.
 
 ## Data contracts
 
