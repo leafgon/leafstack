@@ -70,6 +70,65 @@ Minimal creation fields include:
 
 The `payloadRef` above comes from the `<ref>:resolve` response.
 
+## Inline JSON through the HTTP API
+
+These examples are direct HTTP requests to leaf-server. They are distinct from
+the versioned input bottles sent to a `leafelement(blob)` through a spelldef
+Test trigger. For element bottle inputs and outputs, see the
+[Blob element bottle contract](../../leaf/references/blob-storage.md#blob-element-bottle-contract).
+
+Create inline JSON with `PUT`. The server derives `contentType`,
+`contentLength`, and `contentHash`; do not include those fields or `payloadRef`
+with `inlineJson`:
+
+```http
+PUT /api/v1/blob-storage/objects/<domain>/<app>/<blobElement>/records
+Authorization: Bearer <token>
+Idempotency-Key: records-inline-create-001
+Content-Type: application/json
+
+{
+  "operation": "create",
+  "description": "Workflow records",
+  "correlationId": "records-inline-create-001",
+  "inlineJson": {"summary": {"pending": 2, "obsolete": true}, "records": []}
+}
+```
+
+For a partial update, send `operation: "merge-json"`, the current
+`expectedAssetRevision`, and an object-valued `jsonMergePatch`. Omitted fields
+remain unchanged, nested objects merge recursively, arrays replace, and `null`
+removes a field:
+
+```http
+PUT /api/v1/blob-storage/objects/<domain>/<app>/<blobElement>/records
+Authorization: Bearer <token>
+Idempotency-Key: records-inline-update-001
+Content-Type: application/json
+
+{
+  "operation": "merge-json",
+  "expectedAssetRevision": 1,
+  "correlationId": "records-inline-update-001",
+  "jsonMergePatch": {"summary": {"pending": 1, "obsolete": null}}
+}
+```
+
+Fetch parsed JSON by adding `?inlineJson=true` to the object GET. The response
+contains the normal `ghostos.blob_data_file.v1` metadata and an `inlineJson`
+member:
+
+```http
+GET /api/v1/blob-storage/objects/<domain>/<app>/<blobElement>/records?inlineJson=true
+Authorization: Bearer <token>
+```
+
+Inline JSON is limited to 64 KiB or the adapter's lower object limit. For
+revision-guarded replacement use `operation: "overwrite"` and
+`expectedAssetRevision`. These HTTP requests are not valid `leafelement(blob)`
+bottle inputs; send the versioned `ghostos.blob_store_bottle.v1` or
+`ghostos.blob_fetch_bottle.v1` shape when exercising the element.
+
 ## Contract list and enrichment
 
 Call `POST /api/v1/blob-storage/objects/<domain>/<app>/<blobElement>:list` with
