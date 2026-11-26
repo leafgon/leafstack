@@ -1,14 +1,16 @@
 ---
 name: leaf-blob-api
-description: Operate and troubleshoot public leaf-server Blob API flows for runtime-file refs, object CRUD, object download checks, contract listing, and enrichment verification.
+description: Operate and troubleshoot public leaf-server Blob API flows for runtime-file refs, inline JSON CRUD, object download checks, contract listing, and enrichment verification.
 ---
 
 # LEAF Blob API Operator
 
 Use this skill for direct Blob API operations against leaf-server: storing files
-through runtime refs, listing blob objects, verifying `assetUrls` or
-`objectMetadata` enrichment, downloading object bytes when required, and
-diagnosing Blob contract failures.
+through runtime refs or inline JSON, listing blob objects, verifying `assetUrls`
+or `objectMetadata` enrichment, downloading object bytes when required, and
+diagnosing Blob contract failures. This skill covers raw HTTP requests; for
+versioned inputs sent directly to `leafelement(blob)`, use the
+[Blob element bottle contract](../leaf/references/blob-storage.md#blob-element-bottle-contract).
 
 ## Operating contract
 

@@ -51,7 +51,10 @@ Run the environment survey before mutations when needed:
 - Read [references/api-tokens.md](references/api-tokens.md) before creating, changing, rotating, revoking, or using a `leafelement(token)` pattern.
 - Read [references/multi-graph-batches.md](references/multi-graph-batches.md) before offline JSON authoring, constructing local multi-domain/app graph files, or applying a CRUD batch.
 - Read [references/spelldef-test-harness.md](references/spelldef-test-harness.md) when reproducing browser `leafspelldef` menu/test paths locally.
-- Use `$leaf-blob-api` when the task is direct Blob API request/response troubleshooting rather than graph-program authoring.
+- Use `$leaf-blob-api` for direct leaf-server Blob HTTP requests; those HTTP
+  method/path/body descriptors differ from `leafelement(blob)` bottles. The
+  bottle contract and inline JSON examples are in
+  [references/blob-storage.md](references/blob-storage.md).
 
 ## Use the offline JSON authoring path
 
